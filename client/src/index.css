@@ -1,0 +1,44 @@
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Poppins', sans-serif;
+  background: linear-gradient(135deg, #0f0f0f, #1a1a2e);
+  color: white;
+}
+
+a {
+  text-decoration: none;
+  color: white;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 10px;
+}/* Mobile Responsive */
+@media (max-width: 768px) {
+  .nav-links {
+    display: none !important;
+  }
+
+  .menu-icon {
+    display: block !important;
+    color: white;
+  }
+}
+.movie-row::-webkit-scrollbar {
+  display: none;
+}
+
+/* Overlay on hover */
+.movie-row div:hover .overlay {
+  opacity: 1;
+}
