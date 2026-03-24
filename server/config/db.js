@@ -1,32 +1,45 @@
 const { createClient } = require('@supabase/supabase-js');
+require("dotenv").config();
 
-// Initialize Supabase client
+// ✅ Use correct environment variables
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_ANON_KEY;
+const supabaseKey = process.env.SUPABASE_KEY; // ✅ FIXED
 
+// 🔴 Validate ENV
 if (!supabaseUrl || !supabaseKey) {
+  console.error("❌ Missing Supabase ENV variables");
+  console.log("SUPABASE_URL:", supabaseUrl);
+  console.log("SUPABASE_KEY:", supabaseKey);
   throw new Error('Missing Supabase environment variables. Please check your .env file.');
 }
 
+// ✅ Create client
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+// ✅ Test connection
 const connectDB = async () => {
   try {
-    // Test the connection by making a simple query
-    const { data, error } = await supabase.from('users').select('count').limit(1);
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .limit(1);
 
-    if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned" which is OK
+    if (error) {
       throw error;
     }
 
     console.log('✅ Supabase Connected Successfully!');
     return supabase;
+
   } catch (error) {
     console.error('❌ Supabase Connection Error:', error.message);
-    console.error('\n🔧 Troubleshooting Steps:');
-    console.error('1. Check your SUPABASE_URL and SUPABASE_ANON_KEY in .env file');
-    console.error('2. Ensure your Supabase project is active');
-    console.error('3. Verify your table permissions in Supabase');
+
+    console.error('\n🔧 Fix Checklist:');
+    console.error('1. Check SUPABASE_URL in .env');
+    console.error('2. Use SERVICE ROLE KEY (not anon)');
+    console.error('3. Ensure users table exists');
+    console.error('4. Disable RLS or add policy');
+
     process.exit(1);
   }
 };

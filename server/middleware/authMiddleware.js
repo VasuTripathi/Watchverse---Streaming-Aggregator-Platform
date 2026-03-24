@@ -9,6 +9,19 @@ const protect = (req, res, next) => {
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+      // ✅ FIX: Validate that decoded.id is a real usable value
+      // Old tokens had id: undefined (from user._id which doesn't exist in Supabase)
+      // Those tokens decode to id = undefined or id = { ... } (object) — both invalid
+      if (
+        !decoded.id ||
+        typeof decoded.id === "object" ||
+        decoded.id === "undefined"
+      ) {
+        return res
+          .status(401)
+          .json({ message: "Invalid token: please log out and log in again" });
+      }
+
       req.user = decoded.id;
 
       next();
