@@ -24,30 +24,48 @@ a {
 .movie-row div:hover .overlay { opacity: 1 !important; }
 
 /* =====================
-   NAVBAR - FIXED GLASS
+   NAVBAR - ISLAND STYLE
 ===================== */
 .navbar {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 48px);
+  max-width: 1200px;
   z-index: 1000;
 
   display: flex;
   justify-content: space-between;
   align-items: center;
 
-  padding: 14px 40px;
+  padding: 12px 28px;
 
-  /* Glass effect */
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  /* Rounded island */
+  border-radius: 100px;
 
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
+  /* Deep translucent glass */
+  background: rgba(10, 10, 20, 0.45);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
 
-  transition: background 0.3s ease;
+  /* Subtle glow border */
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-top: 1px solid rgba(255, 255, 255, 0.22);
+
+  /* Shadow for depth */
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    0 1px 0 rgba(255, 255, 255, 0.06) inset;
+
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+.navbar:hover {
+  background: rgba(10, 10, 20, 0.6);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.6),
+    0 1px 0 rgba(255, 255, 255, 0.08) inset;
 }
 
 .nav-logo {
@@ -73,16 +91,21 @@ a {
 
 .menu-icon {
   display: none !important;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   color: white;
   letter-spacing: 1px;
-  padding: 6px 14px;
+  padding: 6px 16px;
   border: 1px solid rgba(255,255,255,0.2);
   border-radius: 20px;
   background: rgba(255,255,255,0.06);
   user-select: none;
+  transition: background 0.2s;
+}
+
+.menu-icon:hover {
+  background: rgba(255,255,255,0.12);
 }
 
 /* =====================
@@ -90,17 +113,23 @@ a {
 ===================== */
 .mobile-menu {
   position: fixed;
-  top: 57px; /* height of navbar */
-  left: 0;
-  right: 0;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 48px);
   z-index: 999;
 
-  background: rgba(8, 8, 18, 0.97);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  background: rgba(8, 8, 20, 0.92);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
 
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  padding: 20px 28px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-top: 1px solid rgba(255,255,255,0.18);
+  border-radius: 24px;
+
+  padding: 20px 24px;
+
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
 
   display: flex;
   flex-direction: column;
@@ -141,8 +170,6 @@ a {
 
 /* =====================
    HERO - starts behind navbar
-   navbar height ~57px so hero
-   uses full viewport from top:0
 ===================== */
 .hero-section {
   height: 100vh;
@@ -155,7 +182,6 @@ a {
   flex-direction: column;
   justify-content: center;
 
-  /* Push content down so it sits below navbar visually */
   padding: 100px 60px 60px 60px;
 
   transition: background-image 0.8s ease-in-out;
@@ -277,13 +303,23 @@ a {
 ===================== */
 @media (max-width: 768px) {
 
-  /* Navbar */
-  .navbar { padding: 14px 20px; }
+  /* Island navbar on mobile */
+  .navbar {
+    top: 12px;
+    width: calc(100% - 32px);
+    padding: 10px 20px;
+    border-radius: 100px;
+  }
+
   .nav-links { display: none !important; }
   .menu-icon { display: flex !important; }
 
-  /* Mobile menu top = navbar height on mobile */
-  .mobile-menu { top: 57px; }
+  /* Mobile dropdown aligns under island */
+  .mobile-menu {
+    top: 72px;
+    width: calc(100% - 32px);
+    border-radius: 20px;
+  }
 
   /* Hero */
   .hero-section {

@@ -16,327 +16,142 @@ function Navbar() {
   const handleLogout = () => {
     logout();
     localStorage.removeItem("token");
+    setMenuOpen(false);
     navigate("/login");
   };
 
   return (
-    <div
-      style={{
-        
-        padding: "12px 25px",
-        borderRadius: "100px",
+    <>
+      {/* FIXED GLASS NAVBAR */}
+      <nav className="navbar">
 
-        // 💧 GLASS EFFECT
-        background: "rgba(0, 0, 0, 0.03)",
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
-
-        // ✨ SHINE + BORDER
-        border: "1px solid rgba(255,255,255,0.15)",
-        borderTop: "1px solid rgba(255,255,255,0.3)",
-        boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
-
-        // 📌 POSITION
-        position: "sticky",
-        top: 20,
-        left:0,
-        width: "100%",
-
-        // 🧭 LAYOUT
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-
-        transition: "all 0.3s ease"
-      }}
-    >
-
-      {/* 🎬 LOGO */}
-      <h2
-        onClick={() => navigate("/")}
-        style={{
-          color: "#e50914",
-          cursor: "pointer",
-          fontWeight: "700",
-          letterSpacing: "1px",
-          transition: "0.3s"
-        }}
-        onMouseOver={(e) => e.target.style.transform = "scale(1.08)"}
-        onMouseOut={(e) => e.target.style.transform = "scale(1)"}
-      >
-         Watchverse
-      </h2>
-
-      {/* 🍔 MOBILE MENU ICON */}
-      <div
-        className="menu-icon"
-        onClick={() => setMenuOpen(!menuOpen)}
-        style={{
-          display: "none",
-          fontSize: "22px",
-          cursor: "pointer",
-          color: "white"
-        }}
-      >
-        ☰
-      </div>
-
-      {/* DESKTOP NAV */}
-      <div
-        className="nav-links"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "50px"
-        }}
-      >
-
-        {/* 🔍 SEARCH */}
-        <Link
-          to="/search"
-          style={linkStyle}
-          onMouseOver={hoverIn}
-          onMouseOut={hoverOut}
+        {/* LOGO */}
+        <h2
+          onClick={() => { navigate("/"); setMenuOpen(false); }}
+          className="nav-logo"
         >
-           Search
-        </Link>
+          Watchverse
+        </h2>
 
-        {/* ⭐ WATCHLIST */}
-        {token && (
-          <Link
-            to="/watchlist"
-            style={linkStyle}
-            onMouseOver={hoverIn}
-            onMouseOut={hoverOut}
-          >
-             Watchlist
+        {/* HAMBURGER - mobile only, CSS controls visibility */}
+        <div
+          className="menu-icon"
+          onClick={() => setMenuOpen(!menuOpen)}
+        >
+          {menuOpen ? "X" : "Menu"}
+        </div>
+
+        {/* DESKTOP NAV LINKS */}
+        <div className="nav-links">
+
+          <Link to="/search" style={linkStyle} onMouseOver={hoverIn} onMouseOut={hoverOut}>
+            Search
           </Link>
-        )}
 
-        {/* 👤 PROFILE */}
-{token ? (
-  <div style={{ position: "relative" }}>
-
-    {/* PROFILE BUTTON */}
-    <div
-      onClick={() => setProfileOpen(!profileOpen)}
-      style={{
-        cursor: "pointer",
-        padding: "6px 14px",
-        borderRadius: "20px",
-        background: "rgba(255,255,255,0.08)",
-        backdropFilter: "blur(10px)",
-        border: "1px solid rgba(255,255,255,0.2)",
-        color: "white",
-        fontWeight: "500",
-        transition: "0.3s"
-      }}
-      onMouseOver={(e) => {
-        e.target.style.background = "rgba(255,255,255,0.2)";
-      }}
-      onMouseOut={(e) => {
-        e.target.style.background = "rgba(255,255,255,0.08)";
-      }}
-    >
-       Profile
-    </div>
-
-    {/* DROPDOWN */}
-    {profileOpen && (
-      <div
-        style={{
-          position: "absolute",
-          top: "45px",
-          right: 0,
-          background: "rgba(20,20,20,0.9)",
-          backdropFilter: "blur(12px)",
-          padding: "12px",
-          borderRadius: "10px",
-          minWidth: "140px",
-          boxShadow: "0 10px 25px rgba(0,0,0,0.6)",
-          border: "1px solid rgba(255,255,255,0.1)"
-        }}
-      >
-
-        {/* USER INFO */}
-        <p
-          style={{
-            marginBottom: "8px",
-            fontSize: "13px",
-            color: "#aaa"
-          }}
-        >
-          Logged in
-        </p>
-
-        {/* LOGOUT */}
-        <p
-          onClick={handleLogout}
-          style={{
-            padding: "6px",
-            cursor: "pointer",
-            borderRadius: "6px",
-            transition: "0.3s"
-          }}
-          onMouseOver={(e) => {
-            e.target.style.background = "#e50914";
-          }}
-          onMouseOut={(e) => {
-            e.target.style.background = "transparent";
-          }}
-        >
-          🚪 Logout
-        </p>
-
-      </div>
-    )}
-
-  </div>
-) : (
-  <button
-  onClick={() => navigate("/login")}
-  style={{
-    padding: "8px 18px",
-    borderRadius: "20px",
-
-    // 💧 GLASS STYLE
-    background: "rgba(255,255,255,0.08)",
-    backdropFilter: "blur(15px)",
-    WebkitBackdropFilter: "blur(15px)",
-
-    border: "1px solid rgba(255,255,255,0.2)",
-    borderTop: "1px solid rgba(255,255,255,0.3)",
-
-    color: "white",
-    fontWeight: "500",
-    cursor: "pointer",
-
-    boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
-
-    transition: "all 0.3s ease"
-  }}
-  onMouseOver={(e) => {
-    e.target.style.background = "rgba(255,255,255,0.2)";
-    e.target.style.boxShadow = "0 0 10px #e50914";
-    e.target.style.transform = "scale(1.05)";
-  }}
-  onMouseOut={(e) => {
-    e.target.style.background = "rgba(255,255,255,0.08)";
-    e.target.style.boxShadow = "0 4px 20px rgba(0,0,0,0.4)";
-    e.target.style.transform = "scale(1)";
-  }}
->
-   Login
-</button>
-)}
-
-      </div>
-
-       {menuOpen && (
-        <div style={{
-          position: "absolute",
-          top: "70px",
-          left: "10px",
-          right: "10px",
-          background: "rgba(10,10,20,0.97)",
-          backdropFilter: "blur(20px)",
-          WebkitBackdropFilter: "blur(20px)",
-          border: "1px solid rgba(255,255,255,0.1)",
-          borderRadius: "16px",
-          padding: "20px",
-          display: "flex",
-          flexDirection: "column",
-          gap: "16px",
-          zIndex: 999
-        }}>
- 
-          <Link
-            to="/search"
-            onClick={() => setMenuOpen(false)}
-            style={{
-              color: "white",
-              fontSize: "16px",
-              fontWeight: "500",
-              borderBottom: "1px solid rgba(255,255,255,0.08)",
-              paddingBottom: "12px",
-              textDecoration: "none"
-            }}
-          >
-            🔍 Search
-          </Link>
- 
           {token && (
-            <Link
-              to="/watchlist"
-              onClick={() => setMenuOpen(false)}
-              style={{
-                color: "white",
-                fontSize: "16px",
-                fontWeight: "500",
-                borderBottom: "1px solid rgba(255,255,255,0.08)",
-                paddingBottom: "12px",
-                textDecoration: "none"
-              }}
-            >
-              ⭐ Watchlist
+            <Link to="/watchlist" style={linkStyle} onMouseOver={hoverIn} onMouseOut={hoverOut}>
+              Watchlist
             </Link>
           )}
- 
+
           {token ? (
-            <button
-              onClick={handleLogout}
-              style={{
-                background: "none",
-                border: "none",
-                color: "#e50914",
-                fontSize: "16px",
-                fontWeight: "500",
-                cursor: "pointer",
-                textAlign: "left",
-                fontFamily: "Poppins, sans-serif",
-                padding: 0
-              }}
-            >
-              🚪 Logout
-            </button>
+            <div style={{ position: "relative" }}>
+
+              <div
+                onClick={() => setProfileOpen(!profileOpen)}
+                style={profileBtnStyle}
+                onMouseOver={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.18)"}
+                onMouseOut={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.08)"}
+              >
+                Profile
+              </div>
+
+              {profileOpen && (
+                <div style={dropdownStyle}>
+                  <p style={{ marginBottom: "8px", fontSize: "13px", color: "#aaa" }}>
+                    Logged in
+                  </p>
+                  <p
+                    onClick={handleLogout}
+                    style={{ padding: "6px 8px", cursor: "pointer", borderRadius: "6px", transition: "0.2s", color: "white" }}
+                    onMouseOver={(e) => e.currentTarget.style.background = "#e50914"}
+                    onMouseOut={(e) => e.currentTarget.style.background = "transparent"}
+                  >
+                    Logout
+                  </p>
+                </div>
+              )}
+
+            </div>
           ) : (
             <button
-              onClick={() => { navigate("/login"); setMenuOpen(false); }}
-              style={{
-                background: "none",
-                border: "none",
-                color: "#e50914",
-                fontSize: "16px",
-                fontWeight: "500",
-                cursor: "pointer",
-                textAlign: "left",
-                fontFamily: "Poppins, sans-serif",
-                padding: 0
+              onClick={() => navigate("/login")}
+              style={loginBtnStyle}
+              onMouseOver={(e) => {
+                e.currentTarget.style.background = "rgba(255,255,255,0.2)";
+                e.currentTarget.style.boxShadow = "0 0 12px rgba(229,9,20,0.5)";
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.background = "rgba(255,255,255,0.08)";
+                e.currentTarget.style.boxShadow = "none";
               }}
             >
               Login
             </button>
           )}
- 
+
+        </div>
+      </nav>
+
+      {/* MOBILE DROPDOWN - slides below navbar */}
+      {menuOpen && (
+        <div className="mobile-menu">
+
+          <Link
+            to="/search"
+            onClick={() => setMenuOpen(false)}
+            className="mobile-menu-link"
+          >
+            Search
+          </Link>
+
+          {token && (
+            <Link
+              to="/watchlist"
+              onClick={() => setMenuOpen(false)}
+              className="mobile-menu-link"
+            >
+              Watchlist
+            </Link>
+          )}
+
+          {token ? (
+            <button onClick={handleLogout} className="mobile-menu-btn">
+              Logout
+            </button>
+          ) : (
+            <button onClick={() => { navigate("/login"); setMenuOpen(false); }} className="mobile-menu-btn">
+              Login
+            </button>
+          )}
+
         </div>
       )}
- 
-    </div>
+    </>
   );
 }
-
-/* 🔥 STYLES */
 
 const linkStyle = {
   color: "white",
   fontWeight: "500",
   textDecoration: "none",
-  transition: "0.3s"
+  transition: "0.3s",
+  fontSize: "15px"
 };
 
 const hoverIn = (e) => {
   e.target.style.color = "#e50914";
-  e.target.style.textShadow = "0 0 8px #e50914";
+  e.target.style.textShadow = "0 0 8px rgba(229,9,20,0.6)";
 };
 
 const hoverOut = (e) => {
@@ -344,21 +159,45 @@ const hoverOut = (e) => {
   e.target.style.textShadow = "none";
 };
 
-const buttonStyle = {
-  padding: "6px 14px",
-  borderRadius: "6px",
-  border: "none",
+const profileBtnStyle = {
   cursor: "pointer",
-  background: "#e50914",
+  padding: "6px 16px",
+  borderRadius: "20px",
+  background: "rgba(255,255,255,0.08)",
+  border: "1px solid rgba(255,255,255,0.2)",
   color: "white",
   fontWeight: "500",
-  transition: "0.3s"
+  fontSize: "15px",
+  transition: "0.3s",
+  userSelect: "none"
 };
 
-const dropdownItem = {
-  padding: "6px",
+const loginBtnStyle = {
+  padding: "7px 20px",
+  borderRadius: "20px",
+  background: "rgba(255,255,255,0.08)",
+  border: "1px solid rgba(255,255,255,0.25)",
+  color: "white",
+  fontWeight: "500",
+  fontSize: "15px",
   cursor: "pointer",
-  color: "white"
+  transition: "all 0.3s ease",
+  fontFamily: "Poppins, sans-serif"
+};
+
+const dropdownStyle = {
+  position: "absolute",
+  top: "42px",
+  right: 0,
+  background: "rgba(15,15,25,0.95)",
+  backdropFilter: "blur(16px)",
+  WebkitBackdropFilter: "blur(16px)",
+  padding: "12px",
+  borderRadius: "12px",
+  minWidth: "140px",
+  boxShadow: "0 12px 30px rgba(0,0,0,0.7)",
+  border: "1px solid rgba(255,255,255,0.1)",
+  zIndex: 2000
 };
 
 export default Navbar;
