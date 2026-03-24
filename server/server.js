@@ -12,10 +12,12 @@ connectDB();
 
 // ================= MIDDLEWARE =================
 app.use(cors({
-  origin: "http://localhost:3000", // frontend URL
+  origin: [
+    "http://localhost:3000",                 // local dev
+    "https://vasutripathi.github.io" // GitHub Pages
+  ],
   credentials: true
 }));
-
 app.use(express.json()); // parse JSON
 
 // ================= ROUTES =================
