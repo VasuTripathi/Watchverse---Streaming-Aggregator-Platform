@@ -9,7 +9,7 @@ import Home from "./pages/Home";
 import "react-toastify/dist/ReactToastify.css";
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={process.env.PUBLIC_URL || '/'}>
       <Navbar />
       <Routes>
         <Route path="/" element={<Home />} />

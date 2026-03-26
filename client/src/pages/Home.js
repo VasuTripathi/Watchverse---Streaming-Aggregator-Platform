@@ -7,6 +7,8 @@ function Home() {
   const [trending, setTrending] = useState([]);
   const [topRated, setTopRated] = useState([]);
   const [popular, setPopular] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const [heroIndex, setHeroIndex] = useState(0);
 
@@ -14,16 +16,26 @@ function Home() {
 
   // 🎬 Fetch Movies
   useEffect(() => {
-
-    axios.get(`https://api.themoviedb.org/3/trending/movie/day?api_key=c3eb192bb06b83bf9707742f3f5d851a`)
-      .then(res => setTrending(res.data.results));
-
-    axios.get(`https://api.themoviedb.org/3/movie/top_rated?api_key=c3eb192bb06b83bf9707742f3f5d851a`)
-      .then(res => setTopRated(res.data.results));
-
-    axios.get(`https://api.themoviedb.org/3/movie/popular?api_key=c3eb192bb06b83bf9707742f3f5d851a`)
-      .then(res => setPopular(res.data.results));
-
+    const fetchMovies = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const [trendingRes, topRatedRes, popularRes] = await Promise.all([
+          axios.get(`https://api.themoviedb.org/3/trending/movie/day?api_key=c3eb192bb06b83bf9707742f3f5d851a`),
+          axios.get(`https://api.themoviedb.org/3/movie/top_rated?api_key=c3eb192bb06b83bf9707742f3f5d851a`),
+          axios.get(`https://api.themoviedb.org/3/movie/popular?api_key=c3eb192bb06b83bf9707742f3f5d851a`)
+        ]);
+        setTrending(trendingRes.data.results);
+        setTopRated(topRatedRes.data.results);
+        setPopular(popularRes.data.results);
+      } catch (err) {
+        setError('Failed to load movies. Please try again.');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchMovies();
   }, []);
 
   // 🔄 Auto Slider
@@ -126,6 +138,8 @@ function Home() {
 );
   return (
     <div>
+      {loading && <p style={{ textAlign: 'center', marginTop: '50px' }}>Loading movies...</p>}
+      {error && <p style={{ textAlign: 'center', marginTop: '50px', color: 'red' }}>{error}</p>}
 
       {/* 🎬 HERO SLIDER */}
       {heroMovie && (
