@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useContext, useState } from "react";
 import { AuthContext } from "../context/AuthContext";
+import Logo from "./Logo";
 
 function Navbar() {
 
@@ -30,6 +31,7 @@ function Navbar() {
           onClick={() => { navigate("/"); setMenuOpen(false); }}
           className="nav-logo"
         >
+          <Logo />
           Watchverse
         </h2>
 
