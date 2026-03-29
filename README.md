@@ -8,6 +8,7 @@ React frontend (client)
 
 Node/Express backend (server)
 Supabase for user + watchlist storage
+
 Features
 
 User registration and login
@@ -16,8 +17,8 @@ Browse movies with search
 Movie detail view
 Add/remove watchlist
 View and manage personal watchlist
-Tech Stack
 
+Tech Stack
 Frontend:
 
 React
@@ -28,59 +29,27 @@ Fetch API / axios (in api.js)
 Backend:
 
 Node.js, Express
+Supabase(For Database)
 JWT auth (authController, authMiddleware)
 
-Quick Start
+client  http://localhost:3000
 
-1. Clone
-2. Backend
-3. Frontend
-
-client now likely at http://localhost:3000, backend at http://localhost:5000.
+backend at http://localhost:5000.
 
 REACT_APP_API_URL=http://localhost:5000
 
 Available Scripts
 
-client
+client:-
 
 npm start
 
-npm run build
+server:-
 
-npm test
-
-server
-
-npm start
-
-npm run dev (if using nodemon)
-
-API Endpoints
-
-Auth
-
-POST /api/v1/auth/register
-
-POST /api/v1/auth/login
-
-
-Watchlist
-
-POST /api/v1/watchlist (auth)
-
-GET /api/v1/watchlist (auth)
-
-DELETE /api/v1/watchlist/:id (auth)
-
-
-Contribution
-Fork
-Feature branch
-PR with details
-Review + merge
+node server.js
 
 Contact
 
 Project: Watchverse
+
 Email:- tripathivasu7@gmail.com
