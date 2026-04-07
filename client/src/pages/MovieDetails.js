@@ -11,7 +11,8 @@ function MovieDetails() {
 
   const auth = useContext(AuthContext);
   const token = auth?.token || localStorage.getItem("token");
-
+  const [providers, setProviders] = useState([]);
+  const [watchLink, setWatchLink] = useState("");
   const [movie, setMovie] = useState(null);
   const [trailer, setTrailer] = useState("");
   const [recommendations, setRecommendations] = useState([]);
@@ -38,6 +39,18 @@ function MovieDetails() {
         `https://api.themoviedb.org/3/movie/${id}/similar?api_key=c3eb192bb06b83bf9707742f3f5d851a`
       )
       .then((res) => setRecommendations(res.data.results));
+      axios.get(
+  `https://api.themoviedb.org/3/movie/${id}/watch/providers?api_key=c3eb192bb06b83bf9707742f3f5d851a`
+)
+.then(res => {
+  const data = res.data.results?.IN; // 🇮🇳 India
+
+  if (data) {
+    setProviders(data.flatrate || []);
+    setWatchLink(data.link);
+  }
+})
+.catch(err => console.log(err));
   }, [id]);
 
   const addToWatchlist = async () => {
@@ -146,7 +159,102 @@ function MovieDetails() {
           </button>
         </div>
       </div>
+{/* 🎬 WHERE TO WATCH */}
+<div style={{
+  marginTop: "30px",
+  textAlign: "center"
+}}>
 
+  <h2 style={{
+    marginBottom: "15px",
+    fontWeight: "600"
+  }}>
+     Where to Watch
+  </h2>
+
+  {providers.length > 0 ? (
+    <div style={{
+      display: "flex",
+      gap: "15px",
+      flexWrap: "wrap",
+      justifyContent: "center"
+    }}>
+
+      {providers.map((p, i) => (
+        <div
+          key={i}
+          onClick={() => {
+            const name = encodeURIComponent(movie.title);
+
+            let url = "";
+
+            if (p.provider_name.includes("Netflix")) {
+              url = `https://www.netflix.com/search?q=${name}`;
+            } 
+            else if (p.provider_name.includes("Amazon")) {
+              url = `https://www.primevideo.com/search/ref=atv_nb_sr?phrase=${name}`;
+            } 
+            else if (p.provider_name.includes("Hotstar") || p.provider_name.includes("Jio")) {
+              url = `https://www.hotstar.com/in/search?q=${name}+on+Hotstar`;
+            } 
+            else {
+              url = watchLink;
+            }
+
+            window.open(url, "_blank");
+          }}
+
+          style={{
+            background: "rgba(255,255,255,0.08)",
+            backdropFilter: "blur(12px)",
+            borderRadius: "14px",
+            padding: "12px 18px",
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            cursor: "pointer",
+            transition: "all 0.3s ease",
+            border: "1px solid rgba(255,255,255,0.15)"
+          }}
+
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = "scale(1.08)";
+            e.currentTarget.style.background = "rgba(255,255,255,0.15)";
+          }}
+
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = "scale(1)";
+            e.currentTarget.style.background = "rgba(255,255,255,0.08)";
+          }}
+        >
+
+          <img
+            src={`https://image.tmdb.org/t/p/w92${p.logo_path}`}
+            alt={p.provider_name}
+            style={{
+              width: "40px",
+              borderRadius: "6px"
+            }}
+          />
+
+          <span style={{
+            fontSize: "14px",
+            fontWeight: "500"
+          }}>
+            {p.provider_name}
+          </span>
+
+        </div>
+      ))}
+
+    </div>
+  ) : (
+    <p style={{ color: "#aaa" }}>
+      Not available on streaming platforms
+    </p>
+  )}
+
+</div>
       {/* TRAILER */}
       {trailer && (
         <div style={{ padding: "20px" }}>
