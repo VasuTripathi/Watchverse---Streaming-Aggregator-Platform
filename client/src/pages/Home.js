@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
@@ -7,6 +7,11 @@ function Home() {
   const [trending, setTrending] = useState([]);
   const [topRated, setTopRated] = useState([]);
   const [popular, setPopular] = useState([]);
+  const [actionMovies, setActionMovies] = useState([]);
+  const [thrillerMovies, setThrillerMovies] = useState([]);
+  const [horrorMovies, setHorrorMovies] = useState([]);
+  const [comedyMovies, setComedyMovies] = useState([]);
+  const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -14,20 +19,49 @@ function Home() {
 
   const navigate = useNavigate();
 
+  const handleMovieClick = (movie) => {
+    const userId = localStorage.getItem("userId"); // or from auth
+
+    fetch("http://localhost:5000/api/activity", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        user_id: userId,
+        movie: movie
+      })
+    })
+    .then(res => res.json())
+    .then(data => console.log("Activity saved"))
+    .catch(err => console.error(err));
+  };
+
   // 🎬 Fetch Movies
   useEffect(() => {
     const fetchMovies = async () => {
       try {
         setLoading(true);
         setError(null);
-        const [trendingRes, topRatedRes, popularRes] = await Promise.all([
+        const userId = localStorage.getItem("userId");
+        const [trendingRes, topRatedRes, popularRes, actionRes, thrillerRes, horrorRes, comedyRes, recRes] = await Promise.all([
           axios.get(`https://api.themoviedb.org/3/trending/movie/day?api_key=c3eb192bb06b83bf9707742f3f5d851a`),
           axios.get(`https://api.themoviedb.org/3/movie/top_rated?api_key=c3eb192bb06b83bf9707742f3f5d851a`),
-          axios.get(`https://api.themoviedb.org/3/movie/popular?api_key=c3eb192bb06b83bf9707742f3f5d851a`)
+          axios.get(`https://api.themoviedb.org/3/movie/popular?api_key=c3eb192bb06b83bf9707742f3f5d851a`),
+          axios.get(`https://api.themoviedb.org/3/discover/movie?api_key=c3eb192bb06b83bf9707742f3f5d851a&with_genres=28&sort_by=popularity.desc`),
+          axios.get(`https://api.themoviedb.org/3/discover/movie?api_key=c3eb192bb06b83bf9707742f3f5d851a&with_genres=53&sort_by=popularity.desc`),
+          axios.get(`https://api.themoviedb.org/3/discover/movie?api_key=c3eb192bb06b83bf9707742f3f5d851a&with_genres=27&sort_by=popularity.desc`),
+          axios.get(`https://api.themoviedb.org/3/discover/movie?api_key=c3eb192bb06b83bf9707742f3f5d851a&with_genres=35&sort_by=popularity.desc`),
+          userId ? axios.get(`http://localhost:5000/api/recommendations?user_id=${userId}`) : Promise.resolve({ data: { recommendations: [] } })
         ]);
         setTrending(trendingRes.data.results);
         setTopRated(topRatedRes.data.results);
         setPopular(popularRes.data.results);
+        setActionMovies(actionRes.data.results);
+        setThrillerMovies(thrillerRes.data.results);
+        setHorrorMovies(horrorRes.data.results);
+        setComedyMovies(comedyRes.data.results);
+        setRecommendations(recRes.data.recommendations || []);
       } catch (err) {
         setError('Failed to load movies. Please try again.');
         console.error(err);
@@ -52,90 +86,203 @@ function Home() {
   const heroMovie = trending[heroIndex];
 
   // 🎬 Movie Row Component
- const MovieRow = ({ title, movies }) => (
-  <div style={{ marginBottom: "40px" }}>
+ const MovieRow = ({ title, movies }) => {
+  const rowRef = useRef(null);
+  const [showLeftArrow, setShowLeftArrow] = useState(false);
 
-    {/* 🎬 SECTION TITLE */}
-    <h2
-      style={{
-        margin: "20px",
-        fontSize: "1.5rem",
-        fontWeight: "600"
-      }}
-    >
-      {title}
-    </h2>
+  const scrollRow = (direction) => {
+    if (!rowRef.current) return;
+    rowRef.current.scrollBy({
+      left: direction === "left" ? -420 : 420,
+      behavior: "smooth"
+    });
+  };
 
-    {/* 🎞 MOVIE ROW */}
-    <div
-      style={{
-        display: "flex",
-        overflowX: "scroll",
-        gap: "20px",
-        padding: "0 20px",
-        scrollBehavior: "smooth"
-      }}
-      className="movie-row"
-    >
-      {movies.map((movie) => (
+  const handleScroll = () => {
+    if (!rowRef.current) return;
+    setShowLeftArrow(rowRef.current.scrollLeft > 30);
+  };
+
+  return (
+    <div style={{ marginBottom: "40px", position: "relative" }}>
+
+      {/* 🎬 SECTION TITLE */}
+      <h2
+        style={{
+          margin: "20px",
+          fontSize: "1.7rem",
+          fontWeight: "700",
+          letterSpacing: "0.5px"
+        }}
+      >
+        {title}
+      </h2>
+
+      {/* 🎞 MOVIE ROW */}
+      <div style={{ position: "relative" }}>
         <div
-          key={movie.id}
+          ref={rowRef}
+          onScroll={handleScroll}
           style={{
-            minWidth: "180px",
-            position: "relative",
-            cursor: "pointer",
-            transition: "transform 0.3s"
+            display: "flex",
+            overflowX: "auto",
+            gap: "20px",
+            padding: "0 16px",
+            scrollBehavior: "smooth",
+            scrollbarWidth: "none",
+            msOverflowStyle: "none",
+            touchAction: "pan-x"
           }}
-          onClick={() => navigate(`/movie/${movie.id}`)}
-          onMouseOver={(e) => {
-            e.currentTarget.style.transform = "scale(1.15)";
-            e.currentTarget.style.zIndex = "10";
-          }}
-          onMouseOut={(e) => {
-            e.currentTarget.style.transform = "scale(1)";
-            e.currentTarget.style.zIndex = "1";
-          }}
+          className="movie-row"
         >
+          {movies.map((movie) => (
+            <div
+              key={movie.id}
+              style={{
+                minWidth: "200px",
+                position: "relative",
+                cursor: "pointer",
+                transition: "transform 0.3s, box-shadow 0.3s",
+                borderRadius: "18px",
+                overflow: "hidden",
+                boxShadow: "0 18px 40px rgba(0,0,0,0.25)",
+                background: "#111",
+                touchAction: 'manipulation'
+              }}
+              onClick={() => { handleMovieClick(movie); navigate(`/movie/${movie.id}`); }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.transform = "translateY(-6px) scale(1.03)";
+                e.currentTarget.style.zIndex = "2";
+                const overlay = e.currentTarget.querySelector('.overlay');
+                if (overlay) {
+                  overlay.style.opacity = '1';
+                  overlay.style.transform = 'translateY(0px)';
+                }
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.transform = "translateY(0) scale(1)";
+                e.currentTarget.style.zIndex = "1";
+                const overlay = e.currentTarget.querySelector('.overlay');
+                if (overlay) {
+                  overlay.style.opacity = '0';
+                  overlay.style.transform = 'translateY(20px)';
+                }
+              }}
+              onTouchStart={(e) => {
+                e.currentTarget.style.transform = "translateY(-6px) scale(1.03)";
+                e.currentTarget.style.zIndex = "2";
+                const overlay = e.currentTarget.querySelector('.overlay');
+                if (overlay) {
+                  overlay.style.opacity = '1';
+                  overlay.style.transform = 'translateY(0px)';
+                }
+              }}
+              onTouchEnd={(e) => {
+                e.currentTarget.style.transform = "translateY(0) scale(1)";
+                e.currentTarget.style.zIndex = "1";
+                const overlay = e.currentTarget.querySelector('.overlay');
+                if (overlay) {
+                  overlay.style.opacity = '0';
+                  overlay.style.transform = 'translateY(20px)';
+                }
+              }}
+            >
 
-          {/* 🎬 POSTER */}
-          <img
-            src={`https://image.tmdb.org/t/p/w300${movie.poster_path}`}
-            alt={movie.title}
-            style={{
-              width: "100%",
-              borderRadius: "12px"
-            }}
-          />
+              {/* 🎬 POSTER */}
+              <img
+                src={`https://image.tmdb.org/t/p/w300${movie.poster_path}`}
+                alt={movie.title}
+                style={{
+                  width: "100%",
+                  height: "300px",
+                  objectFit: "cover"
+                }}
+              />
 
-          {/* 🌑 OVERLAY */}
-          <div
-            style={{
-              position: "absolute",
-              bottom: 0,
-              left: 0,
-              right: 0,
-              padding: "10px",
-              borderRadius: "0 0 12px 12px",
-              background: "linear-gradient(to top, rgba(0,0,0,0.9), transparent)",
-              opacity: 0,
-              transition: "0.3s"
-            }}
-            className="overlay"
-          >
-            <p style={{ fontSize: "14px", fontWeight: "bold" }}>
-              {movie.title}
-            </p>
-            <p style={{ fontSize: "12px", color: "#ccc" }}>
-              ⭐ {movie.vote_average}
-            </p>
-          </div>
+              {/* 🌑 OVERLAY */}
+              <div
+                className="overlay"
+                style={{
+                  position: "absolute",
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  padding: "12px",
+                  background: "linear-gradient(to top, rgba(0,0,0,0.95), transparent)",
+                  opacity: 0,
+                  transform: "translateY(20px)",
+                  transition: "all 0.25s ease"
+                }}
+              >
+                <p style={{ fontSize: "14px", fontWeight: "700", margin: 0, lineHeight: 1.2, color: "#fff" }}>
+                  {movie.title}
+                </p>
+                <p style={{ fontSize: "12px", color: "#ccc", margin: "6px 0 0" }}>
+                  {movie.release_date?.split('-')[0] || 'Unknown'} • ⭐ {movie.vote_average?.toFixed(1)}
+                </p>
+              </div>
 
+            </div>
+          ))}
         </div>
-      ))}
-    </div>
 
-  </div>
-);
+        <button
+          onClick={() => scrollRow("left")}
+          style={{
+            position: "absolute",
+            left: "10px",
+            top: "50%",
+            transform: "translateY(-50%)",
+            width: "42px",
+            height: "42px",
+            borderRadius: "50%",
+            border: "1px solid rgba(255,255,255,0.18)",
+            background: "rgba(0,0,0,0.7)",
+            color: "white",
+            cursor: "pointer",
+            fontSize: "1.2rem",
+            display: showLeftArrow ? "flex" : "none",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 8px 20px rgba(0,0,0,0.25)",
+            zIndex: 20
+          }}
+          onMouseOver={(e) => e.currentTarget.style.transform = "translateY(-50%) scale(1.05)"}
+          onMouseOut={(e) => e.currentTarget.style.transform = "translateY(-50%) scale(1)"}
+        >
+          ‹
+        </button>
+
+        <button
+          onClick={() => scrollRow("right")}
+          style={{
+            position: "absolute",
+            right: "10px",
+            top: "50%",
+            transform: "translateY(-50%)",
+            width: "42px",
+            height: "42px",
+            borderRadius: "50%",
+            border: "1px solid rgba(255,255,255,0.18)",
+            background: "rgba(0,0,0,0.7)",
+            color: "white",
+            cursor: "pointer",
+            fontSize: "1.2rem",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 8px 20px rgba(0,0,0,0.25)",
+            zIndex: 20
+          }}
+          onMouseOver={(e) => e.currentTarget.style.transform = "translateY(-50%) scale(1.05)"}
+          onMouseOut={(e) => e.currentTarget.style.transform = "translateY(-50%) scale(1)"}
+        >
+          ›
+        </button>
+      </div>
+    </div>
+  );
+};
   return (
     <div>
       {loading && <p style={{ textAlign: 'center', marginTop: '50px' }}>Loading movies...</p>}
@@ -207,11 +354,18 @@ function Home() {
 )}
 
       {/* 🎬 MOVIE ROWS */}
+      {recommendations.length > 0 && <MovieRow title=" Recommended for You" movies={recommendations} />}
       <MovieRow title=" Trending Now" movies={trending} />
       <MovieRow title=" Top Rated" movies={topRated} />
       <MovieRow title=" Popular" movies={popular} />
-
-    </div>
+      <MovieRow title=" Action" movies={actionMovies} />
+      <MovieRow title=" Thriller" movies={thrillerMovies} />
+      <MovieRow title=" Horror" movies={horrorMovies} />
+      <MovieRow title=" Comedy" movies={comedyMovies} />
+      <style>{`
+        .movie-row::-webkit-scrollbar { display: none; }
+        .movie-row { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>    </div>
   );
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useState, useContext } from "react";
+import { useEffect, useState, useContext, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 
@@ -16,6 +16,16 @@ function MovieDetails() {
   const [movie, setMovie] = useState(null);
   const [trailer, setTrailer] = useState("");
   const [recommendations, setRecommendations] = useState([]);
+  const recommendationsRef = useRef(null);
+
+  const scrollRecommendations = (direction) => {
+    if (recommendationsRef.current) {
+      recommendationsRef.current.scrollBy({
+        left: direction === "left" ? -420 : 420,
+        behavior: "smooth"
+      });
+    }
+  };
 
   useEffect(() => {
     axios
@@ -120,12 +130,13 @@ function MovieDetails() {
       {/* HERO */}
       <div
         style={{
-          height: "80vh",
+          minHeight: "60vh",
+          height: "auto",
           backgroundImage: `url(https://image.tmdb.org/t/p/original${movie.backdrop_path})`,
           backgroundSize: "cover",
           display: "flex",
           alignItems: "center",
-          padding: "40px",
+          padding: "30px 20px",
           backgroundBlendMode: "darken",
           backgroundColor: "rgba(0,0,0,0.7)",
         }}
@@ -146,13 +157,14 @@ function MovieDetails() {
             onClick={addToWatchlist}
             style={{
               marginTop: "10px",
-              padding: "10px 20px",
+              padding: "12px 22px",
               background: "#e50914",
               border: "none",
-              borderRadius: "5px",
+              borderRadius: "8px",
               cursor: "pointer",
               color: "white",
               fontWeight: "bold",
+              touchAction: 'manipulation'
             }}
           >
             Add to Watchlist
@@ -214,7 +226,8 @@ function MovieDetails() {
             gap: "10px",
             cursor: "pointer",
             transition: "all 0.3s ease",
-            border: "1px solid rgba(255,255,255,0.15)"
+            border: "1px solid rgba(255,255,255,0.15)",
+            touchAction: 'manipulation'
           }}
 
           onMouseEnter={(e) => {
@@ -223,6 +236,14 @@ function MovieDetails() {
           }}
 
           onMouseLeave={(e) => {
+            e.currentTarget.style.transform = "scale(1)";
+            e.currentTarget.style.background = "rgba(255,255,255,0.08)";
+          }}
+          onTouchStart={(e) => {
+            e.currentTarget.style.transform = "scale(1.08)";
+            e.currentTarget.style.background = "rgba(255,255,255,0.15)";
+          }}
+          onTouchEnd={(e) => {
             e.currentTarget.style.transform = "scale(1)";
             e.currentTarget.style.background = "rgba(255,255,255,0.08)";
           }}
@@ -261,32 +282,124 @@ function MovieDetails() {
           <h2>Trailer</h2>
           <iframe
             width="100%"
-            height="400"
+            height="min(400px, 40vh)"
             src={`https://www.youtube.com/embed/${trailer}`}
             title="Trailer"
-            style={{ borderRadius: "10px" }}
+            style={{ borderRadius: "10px", minHeight: "260px" }}
           ></iframe>
         </div>
       )}
 
       {/* RECOMMENDATIONS */}
-      <div style={{ padding: "20px" }}>
+      <div style={{ padding: "20px", position: "relative" }}>
         <h2>Recommended Movies</h2>
-        <div style={{ display: "flex", overflowX: "scroll", gap: "15px" }}>
-          {recommendations.slice(0, 10).map((rec) => (
-            <img
-              key={rec.id}
-              src={`https://image.tmdb.org/t/p/w200${rec.poster_path}`}
-              alt={rec.title}
-              style={{
-                borderRadius: "10px",
-                cursor: "pointer",
-                transition: "transform 0.3s",
-              }}
-              onMouseOver={(e) => (e.currentTarget.style.transform = "scale(1.1)")}
-              onMouseOut={(e) => (e.currentTarget.style.transform = "scale(1)")}
-            />
-          ))}
+        <div style={{ position: "relative", marginTop: "15px" }}>
+          <button
+            onClick={() => scrollRecommendations("left")}
+            style={{
+              position: "absolute",
+              left: 0,
+              top: "50%",
+              transform: "translateY(-50%)",
+              zIndex: 10,
+              width: "46px",
+              height: "46px",
+              borderRadius: "50%",
+              border: "none",
+              background: "rgba(0,0,0,0.65)",
+              color: "white",
+              cursor: "pointer",
+              boxShadow: "0 8px 20px rgba(0,0,0,0.25)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              touchAction: 'manipulation'
+            }}
+          >
+            ‹
+          </button>
+
+          <button
+            onClick={() => scrollRecommendations("right")}
+            style={{
+              position: "absolute",
+              right: 0,
+              top: "50%",
+              transform: "translateY(-50%)",
+              zIndex: 10,
+              width: "46px",
+              height: "46px",
+              borderRadius: "50%",
+              border: "none",
+              background: "rgba(0,0,0,0.65)",
+              color: "white",
+              cursor: "pointer",
+              boxShadow: "0 8px 20px rgba(0,0,0,0.25)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              touchAction: 'manipulation'
+            }}
+          >
+            ›
+          </button>
+
+          <div
+            ref={recommendationsRef}
+            style={{
+              display: "flex",
+              overflowX: "auto",
+              gap: "20px",
+              padding: "10px 16px",
+              scrollBehavior: "smooth",
+              scrollbarWidth: "none",
+              msOverflowStyle: "none",
+              touchAction: "pan-x"
+            }}
+          >
+            {recommendations.slice(0, 10).map((rec) => (
+              <div
+                key={rec.id}
+                onClick={() => navigate(`/movie/${rec.id}`)}
+                style={{
+                  minWidth: "180px",
+                  cursor: "pointer",
+                  borderRadius: "20px",
+                  overflow: "hidden",
+                  boxShadow: "0 8px 25px rgba(0,0,0,0.25)",
+                  transition: "transform 0.25s ease, box-shadow 0.25s ease",
+                  background: "#111",
+                  touchAction: 'manipulation'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.transform = "translateY(-6px) scale(1.03)";
+                  e.currentTarget.style.boxShadow = "0 12px 32px rgba(255, 255, 255, 0.35)";
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.transform = "translateY(0) scale(1)";
+                  e.currentTarget.style.boxShadow = "0 8px 25px rgba(0,0,0,0.25)";
+                }}
+                onTouchStart={(e) => {
+                  e.currentTarget.style.transform = "translateY(-6px) scale(1.03)";
+                  e.currentTarget.style.boxShadow = "0 12px 32px rgba(255, 255, 255, 0.35)";
+                }}
+                onTouchEnd={(e) => {
+                  e.currentTarget.style.transform = "translateY(0) scale(1)";
+                  e.currentTarget.style.boxShadow = "0 8px 25px rgba(0,0,0,0.25)";
+                }}
+              >
+                <img
+                  src={rec.poster_path ? `https://image.tmdb.org/t/p/w300${rec.poster_path}` : "https://via.placeholder.com/300x450/111/fff?text=No+Image"}
+                  alt={rec.title}
+                  style={{ width: "100%", display: "block" }}
+                />
+                <div style={{ padding: "10px", color: "#fff" }}>
+                  <div style={{ fontWeight: 700, fontSize: "0.95rem", marginBottom: "5px", lineHeight: 1.2 }}>{rec.title}</div>
+                  <div style={{ fontSize: "0.85rem", color: "#bbb" }}>{rec.release_date?.split("-")[0] || "Unknown"}</div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>

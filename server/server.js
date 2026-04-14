@@ -1,11 +1,12 @@
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
-
-const connectDB = require("./config/db");
+const activityRoutes = require("./routes/activityRoutes");
+const { connectDB } = require("./config/db");
 
 // 🔥 CREATE APP
 const app = express();
+app.use("/api/ai", require("./routes/aiRoutes"));
 
 // ================= DATABASE =================
 connectDB();
@@ -23,6 +24,9 @@ app.use(express.json()); // parse JSON
 // ================= ROUTES =================
 app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/watchlist", require("./routes/watchlistRoutes"));
+app.use("/api/activity", require("./routes/activityRoutes"));
+app.use("/api/recommendations", require("./routes/recommendationsRoutes"));
+app.use("/api/search", require("./routes/searchRoutes"));
 
 // ================= TEST ROUTE =================
 app.get("/", (req, res) => {

@@ -2,8 +2,8 @@ let supabase;
 
 const initSupabase = async () => {
   if (!supabase) {
-    const connectDB = require('../config/db');
-    supabase = await connectDB();
+    const { supabase: client } = require('../config/db');
+    supabase = client;
   }
   return supabase;
 };

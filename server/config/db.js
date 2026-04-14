@@ -1,47 +1,45 @@
-const { createClient } = require('@supabase/supabase-js');
+const { createClient } = require("@supabase/supabase-js");
 require("dotenv").config();
 
-// ✅ Use correct environment variables
+// ✅ Load ENV variables
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_KEY; // ✅ FIXED
+const supabaseKey = process.env.SUPABASE_KEY; // use SERVICE ROLE KEY
 
-// 🔴 Validate ENV
+// ✅ Validate ENV
 if (!supabaseUrl || !supabaseKey) {
   console.error("❌ Missing Supabase ENV variables");
-  console.log("SUPABASE_URL:", supabaseUrl);
-  console.log("SUPABASE_KEY:", supabaseKey);
-  throw new Error('Missing Supabase environment variables. Please check your .env file.');
+  throw new Error("Check your .env file (SUPABASE_URL / SUPABASE_KEY)");
 }
 
-// ✅ Create client
+// ✅ Create Supabase client
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// ✅ Test connection
+// ✅ Test DB connection
 const connectDB = async () => {
   try {
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
+    const { error } = await supabase
+      .from("users")
+      .select("id")
       .limit(1);
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
-    console.log('✅ Supabase Connected Successfully!');
-    return supabase;
+    console.log("✅ Supabase Connected Successfully!");
+  } catch (err) {
+    console.error("❌ Supabase Connection Error:", err.message);
 
-  } catch (error) {
-    console.error('❌ Supabase Connection Error:', error.message);
-
-    console.error('\n🔧 Fix Checklist:');
-    console.error('1. Check SUPABASE_URL in .env');
-    console.error('2. Use SERVICE ROLE KEY (not anon)');
-    console.error('3. Ensure users table exists');
-    console.error('4. Disable RLS or add policy');
+    console.error("\n🔧 Fix Checklist:");
+    console.error("1. Check SUPABASE_URL");
+    console.error("2. Use SERVICE ROLE KEY (not anon)");
+    console.error("3. Ensure table exists");
+    console.error("4. Check RLS policies");
 
     process.exit(1);
   }
 };
 
-module.exports = connectDB;
+// ✅ Export BOTH (important for your project)
+module.exports = {
+  supabase,
+  connectDB,
+};

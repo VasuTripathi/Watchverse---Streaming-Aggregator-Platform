@@ -291,6 +291,43 @@ a {
   max-width: 500px;
 }
 
+.search-tabs {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 10px;
+  margin: 0 auto;
+}
+
+.search-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.search-tab-btn {
+  flex: 0 0 auto;
+  text-align: center;
+  min-width: 120px;
+  touch-action: manipulation;
+}
+
+.menu-icon,
+.mobile-menu-link,
+.mobile-menu-btn {
+  touch-action: manipulation;
+}
+
+.menu-icon {
+  padding: 10px 18px;
+  min-width: 72px;
+}
+
+.mobile-menu-link,
+.mobile-menu-btn {
+  font-size: 17px;
+  padding: 14px 0;
+}
+
 .search-input {
   width: 100%;
   padding: 14px 20px;
@@ -345,8 +382,9 @@ a {
   }
   .hero-title { font-size: 1.6rem; }
   .hero-desc {
-    -webkit-line-clamp: 3;
     display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
     max-width: 100%;
