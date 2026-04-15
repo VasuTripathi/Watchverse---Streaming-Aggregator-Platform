@@ -1,6 +1,47 @@
 import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+
+// Separate component for background animation to prevent flickering
+function AnimatedBackground() {
+  const [mousePosition, setMousePosition] = useState({ x: 50, y: 50 });
+  const mouseFrameRef = useRef(null);
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (mouseFrameRef.current) return;
+      mouseFrameRef.current = window.requestAnimationFrame(() => {
+        setMousePosition({
+          x: (e.clientX / window.innerWidth) * 100,
+          y: (e.clientY / window.innerHeight) * 100,
+        });
+        mouseFrameRef.current = null;
+      });
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      if (mouseFrameRef.current) window.cancelAnimationFrame(mouseFrameRef.current);
+    };
+  }, []);
+
+  return (
+    <>
+      {/* ANIMATED GRADIENT */}
+      <div
+        className="fixed inset-0 opacity-30 pointer-events-none"
+        style={{
+          background: `radial-gradient(circle at ${mousePosition.x}% ${mousePosition.y}%, rgba(229, 9, 20, 0.1) 0%, transparent 50%)`,
+        }}
+      ></div>
+
+      {/* STATIC GRADIENT */}
+      <div className="fixed inset-0 bg-gradient-to-br from-deep-charcoal via-obsidian to-black animate-gradient opacity-80 pointer-events-none"></div>
+    </>
+  );
+}
 
 function Search() {
   const [query, setQuery] = useState("");
@@ -17,9 +58,11 @@ function Search() {
   const [filters, setFilters] = useState({
     genre: "",
     year: "",
-    rating: ""
+    rating: "",
+    platforms: []
   });
   const [showFilters, setShowFilters] = useState(false);
+  const [activeFilters, setActiveFilters] = useState([]);
 
   const navigate = useNavigate();
   const searchInputRef = useRef(null);
@@ -167,60 +210,59 @@ function Search() {
   };
 
   // ================= SEARCH MOVIES =================
-  const searchMovies = async (searchQuery = query) => {
-    if (!searchQuery.trim()) return;
+  const searchMovies = async (searchQuery = query, searchFilters = filters) => {
+    const trimmedQuery = searchQuery.trim();
+    const hasFilter = searchFilters.genre || searchFilters.year || searchFilters.rating || searchFilters.platforms.length > 0;
+
+    if (!trimmedQuery && !hasFilter) return;
 
     setIsLoading(true);
-    saveToHistory(searchQuery);
+    if (trimmedQuery) saveToHistory(trimmedQuery);
 
     try {
-      let searchUrl = `https://api.themoviedb.org/3/search/movie?api_key=c3eb192bb06b83bf9707742f3f5d851a&query=${encodeURIComponent(searchQuery)}`;
+      const apiKey = "c3eb192bb06b83bf9707742f3f5d851a";
+      let url;
+      const params = new URLSearchParams({ api_key: apiKey, language: 'en-US', include_adult: 'false', page: '1' });
 
-      // Add filters to search
-      if (filters.year) searchUrl += `&year=${filters.year}`;
-      if (filters.genre) searchUrl += `&with_genres=${filters.genre}`;
+      if (trimmedQuery) {
+        url = 'https://api.themoviedb.org/3/search/movie';
+        params.append('query', trimmedQuery);
+        if (searchFilters.year) params.append('year', searchFilters.year);
+        if (searchFilters.genre) params.append('with_genres', searchFilters.genre);
+      } else {
+        url = 'https://api.themoviedb.org/3/discover/movie';
+        if (searchFilters.year) params.append('primary_release_year', searchFilters.year);
+        if (searchFilters.genre) params.append('with_genres', searchFilters.genre);
+      }
 
-      const res = await axios.get(searchUrl);
-      setMovies(res.data.results);
-      setActiveTab("results");
+      if (searchFilters.rating) params.append('vote_average.gte', searchFilters.rating);
+
+      const res = await axios.get(`${url}?${params.toString()}`);
+      let results = res.data.results || [];
+
+      if (searchFilters.platforms.length > 0) {
+        results = results.filter((movie) => movie.poster_path || movie.title);
+      }
+
+      setMovies(results);
+      setActiveTab('search');
     } catch (err) {
-      console.error("Error searching movies:", err);
+      console.error('Error searching movies:', err);
       setMovies([]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // ================= AI SUGGESTIONS =================
+  // ================= AUTO SEARCH AS YOU TYPE =================
   useEffect(() => {
-    const delay = setTimeout(async () => {
+    const delay = setTimeout(() => {
       if (!query.trim()) {
         setSuggestions([]);
         return;
       }
-
-      setIsSuggestionsLoading(true);
-
-      try {
-        const res = await axios.get(
-          `http://localhost:5000/api/search/ai-suggestions?query=${encodeURIComponent(query)}`
-        );
-        setSuggestions(res.data.suggestions || []);
-      } catch (err) {
-        console.error("Error fetching AI suggestions:", err);
-        try {
-          const fallbackRes = await axios.get(
-            `https://api.themoviedb.org/3/search/movie?api_key=c3eb192bb06b83bf9707742f3f5d851a&query=${query}`
-          );
-          setSuggestions(fallbackRes.data.results.slice(0, 8));
-        } catch (fallbackErr) {
-          console.error("Error fetching fallback suggestions:", fallbackErr);
-          setSuggestions([]);
-        }
-      } finally {
-        setIsSuggestionsLoading(false);
-      }
-    }, 300);
+      searchMovies(query, filters);
+    }, 500);
 
     return () => clearTimeout(delay);
   }, [query]);
@@ -236,10 +278,51 @@ function Search() {
     }
   }, [activeTab, trendingMovies.length, trendingLoading]);
 
+  // ================= FILTER MANAGEMENT =================
+  const applyFilters = () => {
+    const newActiveFilters = [];
+    if (filters.genre) newActiveFilters.push({ type: 'genre', value: filters.genre, label: getGenreName(filters.genre) });
+    if (filters.year) newActiveFilters.push({ type: 'year', value: filters.year, label: filters.year });
+    if (filters.rating) newActiveFilters.push({ type: 'rating', value: filters.rating, label: `${filters.rating}+ Rating` });
+    if (filters.platforms.length > 0) {
+      filters.platforms.forEach(platform => {
+        newActiveFilters.push({ type: 'platform', value: platform, label: platform });
+      });
+    }
+    setActiveFilters(newActiveFilters);
+    setShowFilters(false);
+    searchMovies(query, filters);
+  };
+
+  const removeFilter = (filterToRemove) => {
+    const newFilters = { ...filters };
+    const newActiveFilters = activeFilters.filter(filter => filter !== filterToRemove);
+
+    if (filterToRemove.type === 'genre') newFilters.genre = '';
+    if (filterToRemove.type === 'year') newFilters.year = '';
+    if (filterToRemove.type === 'rating') newFilters.rating = '';
+    if (filterToRemove.type === 'platform') {
+      newFilters.platforms = newFilters.platforms.filter(p => p !== filterToRemove.value);
+    }
+
+    setFilters(newFilters);
+    setActiveFilters(newActiveFilters);
+  };
+
+  const getGenreName = (genreId) => {
+    const genres = {
+      '28': 'Action', '12': 'Adventure', '16': 'Animation', '35': 'Comedy',
+      '80': 'Crime', '99': 'Documentary', '18': 'Drama', '10751': 'Family',
+      '14': 'Fantasy', '36': 'History', '27': 'Horror', '10402': 'Music',
+      '9648': 'Mystery', '10749': 'Romance', '878': 'Sci-Fi', '10770': 'TV Movie',
+      '53': 'Thriller', '10752': 'War', '37': 'Western'
+    };
+    return genres[genreId] || genreId;
+  };
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (searchWrapperRef.current && !searchWrapperRef.current.contains(event.target)) {
-        setSuggestions([]);
         setShowFilters(false);
       }
     };
@@ -256,949 +339,573 @@ function Search() {
   const clearSearch = () => {
     setQuery("");
     setMovies([]);
-    setSuggestions([]);
     setActiveTab("search");
     if (searchInputRef.current) {
       searchInputRef.current.focus();
     }
   };
 
+  // ================= SKELETON LOADER =================
+  const SkeletonCard = () => (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="bg-gray-800 rounded-xl overflow-hidden animate-pulse"
+      style={{ width: '200px', height: '300px' }}
+    >
+      <div className="w-full h-full bg-gradient-to-r from-gray-700 via-gray-600 to-gray-700 animate-loading"></div>
+    </motion.div>
+  );
+
   // ================= MOVIE CARD COMPONENT =================
-  const MovieCard = ({ movie, size = "medium" }) => {
+  const MovieCard = ({ movie, index = 0 }) => {
     const [imageLoaded, setImageLoaded] = useState(false);
-    const [imageError, setImageError] = useState(false);
-
-    const sizes = {
-      small: { width: 140, height: 210 },
-      medium: { width: 180, height: 270 },
-      large: { width: 220, height: 330 }
-    };
-
-    const dimensions = sizes[size];
 
     return (
-      <div
-        className="movie-card"
-        role="button"
-        tabIndex={0}
+      <motion.button
+        type="button"
+        className="relative group cursor-pointer overflow-hidden rounded-3xl bg-white/10 backdrop-blur-xl border border-white/10 shadow-2xl transition-all duration-200 hover:bg-white/15 hover:scale-105"
+        style={{ width: '220px', height: '340px' }}
         onClick={() => handleMovieClick(movie)}
-        onKeyPress={(e) => e.key === 'Enter' && handleMovieClick(movie)}
-        style={{
-          position: 'relative',
-          width: dimensions.width,
-          height: dimensions.height,
-          borderRadius: '16px',
-          overflow: 'hidden',
-          cursor: 'pointer',
-          transition: 'all 0.3s ease',
-          background: 'linear-gradient(180deg, #111 0%, #14141c 100%)',
-          boxShadow: '0 18px 40px rgba(0,0,0,0.35)',
-          touchAction: 'manipulation'
-        }}
-        onMouseOver={(e) => {
-          e.currentTarget.style.transform = 'scale(1.05) translateY(-5px)';
-          e.currentTarget.style.boxShadow = '0 8px 25px rgba(229, 9, 20, 0.3)';
-        }}
-        onMouseOut={(e) => {
-          e.currentTarget.style.transform = 'scale(1) translateY(0)';
-          e.currentTarget.style.boxShadow = '0 4px 15px rgba(0,0,0,0.3)';
-        }}
-        onTouchStart={(e) => {
-          e.currentTarget.style.transform = 'scale(1.05) translateY(-5px)';
-          e.currentTarget.style.boxShadow = '0 8px 25px rgba(229, 9, 20, 0.3)';
-        }}
-        onTouchEnd={(e) => {
-          e.currentTarget.style.transform = 'scale(1) translateY(0)';
-          e.currentTarget.style.boxShadow = '0 4px 15px rgba(0,0,0,0.3)';
-        }}
+        aria-label={`Open details for ${movie.title}`}
       >
         {/* LOADING SKELETON */}
         {!imageLoaded && (
-          <div
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: 'linear-gradient(90deg, #333 25%, #444 50%, #333 75%)',
-              backgroundSize: '200% 100%',
-              animation: 'loading 1.5s infinite',
-              borderRadius: '12px'
-            }}
-          />
+          <div className="absolute inset-0 bg-gradient-to-r from-gray-700 via-gray-600 to-gray-700 animate-loading rounded-xl z-20"></div>
         )}
 
         {/* POSTER IMAGE */}
-        <img
+        <motion.img
           src={movie.poster_path
             ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
             : 'https://via.placeholder.com/300x450/333/fff?text=No+Image'
           }
           alt={movie.title}
           onLoad={() => setImageLoaded(true)}
-          onError={() => {
-            setImageError(true);
-            setImageLoaded(true);
-          }}
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            opacity: imageLoaded ? 1 : 0,
-            transition: 'opacity 0.3s ease'
-          }}
+          onError={() => setImageLoaded(true)}
+          className="w-full h-full object-cover"
         />
 
-        {/* HOVER OVERLAY */}
-        <div
-          className="movie-overlay"
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            padding: '15px',
-            background: 'linear-gradient(to top, rgba(0,0,0,0.9), transparent)',
-            opacity: 0,
-            transition: 'opacity 0.3s ease',
-            transform: 'translateY(20px)',
-            pointerEvents: 'none'
-          }}
-        >
-          <h4
-            style={{
-              fontSize: '14px',
-              fontWeight: '600',
-              marginBottom: '5px',
-              color: 'white',
-              textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap'
-            }}
-          >
+        {/* GLASS INFO PANEL */}
+        <div className="absolute inset-x-0 bottom-0 p-4 bg-black/60 backdrop-blur-2xl border-t border-white/10">
+          <h4 className="text-white text-base font-bold mb-2 line-clamp-2">
             {movie.title}
           </h4>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span
-              style={{
-                color: '#ffd700',
-                fontSize: '12px',
-                fontWeight: '500'
-              }}
-            >
-              ⭐ {movie.vote_average?.toFixed(1)}
-            </span>
-            <span
-              style={{
-                color: '#bbb',
-                fontSize: '11px'
-              }}
-            >
-              {movie.release_date?.split('-')[0]}
-            </span>
+          <div className="flex items-center justify-between text-xs text-gray-300">
+            <span>{movie.release_date ? movie.release_date.split('-')[0] : 'Unknown'}</span>
+            <span>{movie.vote_average ? movie.vote_average.toFixed(1) : 'N/A'}</span>
           </div>
         </div>
-
-        {/* PLAY BUTTON */}
-        <div
-          className="play-button"
-          style={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%) scale(0)',
-            width: '50px',
-            height: '50px',
-            borderRadius: '50%',
-            background: 'rgba(229, 9, 20, 0.95)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 6px 20px rgba(229, 9, 20, 0.45)',
-            opacity: 0,
-            transition: 'all 0.3s ease',
-            pointerEvents: 'none'
-          }}
-        >
-          <span style={{ color: 'white', fontSize: '18px', marginLeft: '2px' }}>▶</span>
-        </div>
-      </div>
+      </motion.button>
     );
   };
 
+
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: "linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%)",
-      color: "white",
-      paddingTop: "80px"
-    }}>
+    <div className="min-h-screen bg-gradient-to-br from-deep-charcoal via-obsidian to-black text-white overflow-hidden relative">
+      {/* ANIMATED BACKGROUND - Separate component prevents flickering */}
+      <AnimatedBackground />
 
-      {/* ================= HERO SEARCH SECTION ================= */}
-      <div style={{
-        padding: "40px 20px",
-        textAlign: "center",
-        background: "linear-gradient(45deg, rgba(229, 9, 20, 0.1) 0%, rgba(0,0,0,0.8) 100%)",
-        marginBottom: "40px"
-      }}>
-        <h1 style={{
-          fontSize: "clamp(2.5rem, 8vw, 4rem)",
-          fontWeight: "900",
-          marginBottom: "20px",
-          background: "linear-gradient(45deg, #e50914, #ff6b6b)",
-          WebkitBackgroundClip: "text",
-          WebkitTextFillColor: "transparent",
-          textShadow: "3px 3px 6px rgba(0,0,0,0.5)"
-        }}>
-          Discover Movies
-        </h1>
+      {/* CONTENT */}
+      <div className="relative z-10 pt-20">
+        {/* ================= HERO SEARCH SECTION ================= */}
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8 }}
+          className="px-6 py-16 text-center"
+        >
+          <motion.h1
+            initial={{ scale: 0.9 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.2, duration: 0.6 }}
+            className="text-4xl md:text-6xl font-black mb-6 bg-gradient-to-r from-electric-crimson to-red-400 bg-clip-text text-transparent drop-shadow-2xl"
+          >
+            Invade the verse
+          </motion.h1>
 
-        <p style={{
-          fontSize: "clamp(1rem, 3vw, 1.3rem)",
-          marginBottom: "40px",
-          opacity: 0.8,
-          maxWidth: "600px",
-          margin: "0 auto 40px auto"
-        }}>
-          Search millions of movies with AI-powered suggestions and personalized recommendations
-        </p>
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4, duration: 0.6 }}
+            className="text-lg md:text-xl mb-12 text-gray-300 max-w-2xl mx-auto"
+          >
+            Find Your Next Obsession in the Watchverse
+          </motion.p>
 
-        {/* ================= SEARCH BAR ================= */}
-        <div ref={searchWrapperRef} style={{
-          position: "relative",
-          maxWidth: "600px",
-          margin: "0 auto",
-          zIndex: 10
-        }}>
-          <div style={{
-            position: "relative",
-            display: "flex",
-            alignItems: "center"
-          }}>
-            {/* SEARCH ICON */}
-            <div style={{
-              position: "absolute",
-              left: "20px",
-              zIndex: 2,
-              color: "#e50914",
-              fontSize: "20px"
-            }}>
-              
-            </div>
-
-            {/* SEARCH INPUT */}
-            <input
-              ref={searchInputRef}
-              type="text"
-              placeholder="Search for movies, actors, directors..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && searchMovies()}
-              style={{
-                width: "100%",
-                padding: "18px 60px 18px 60px",
-                borderRadius: "50px",
-                background: "rgba(255,255,255,0.16)",
-                backdropFilter: "blur(18px)",
-                border: "1px solid rgba(255,255,255,0.24)",
-                outline: "none",
-                fontSize: "16px",
-                fontWeight: "500",
-                color: "white",
-                boxShadow: "0 18px 60px rgba(0,0,0,0.25)",
-                transition: "all 0.3s ease"
-              }}
-              onFocus={(e) => {
-                e.target.style.borderColor = "#e50914";
-                e.target.style.boxShadow = "0 8px 32px rgba(229, 9, 20, 0.2)";
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = "rgba(255,255,255,0.24)";
-                e.target.style.boxShadow = "0 18px 60px rgba(0,0,0,0.25)";
-              }}
-            />
-
-            {/* VOICE SEARCH BUTTON */}
-            <button
-              onClick={voiceSearchActive ? stopVoiceSearch : startVoiceSearch}
-              style={{
-                position: "absolute",
-                right: "120px",
-                zIndex: 2,
-                background: "transparent",
-                border: "none",
-                cursor: "pointer",
-                padding: "10px",
-                borderRadius: "50%",
-                transition: "all 0.3s ease",
-                color: voiceSearchActive ? "#e50914" : "#666"
-              }}
-              onMouseOver={(e) => {
-                e.target.style.background = "rgba(229, 9, 20, 0.1)";
-              }}
-              onMouseOut={(e) => {
-                e.target.style.background = "transparent";
-              }}
+          {/* ================= SEARCH BAR ================= */}
+          <motion.div
+            ref={searchWrapperRef}
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.6, duration: 0.5 }}
+            className="relative max-w-4xl mx-auto"
+          >
+            <motion.div
+              className="grid gap-3 md:grid-cols-[1.4fr_auto_auto] items-center"
+              whileFocus={{ scale: 1.02 }}
             >
-              {voiceSearchActive ? "🎤" : "🎙️"}
-            </button>
-
-            {/* CLEAR BUTTON */}
-            {query && (
-              <button
-                onClick={clearSearch}
-                style={{
-                  position: "absolute",
-                  right: "70px",
-                  zIndex: 2,
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                  padding: "10px",
-                  borderRadius: "50%",
-                  color: "#666",
-                  transition: "all 0.3s ease"
-                }}
-                onMouseOver={(e) => {
-                  e.target.style.background = "rgba(229, 9, 20, 0.1)";
-                  e.target.style.color = "#e50914";
-                }}
-                onMouseOut={(e) => {
-                  e.target.style.background = "transparent";
-                  e.target.style.color = "#666";
-                }}
-              >
-                ✕
-              </button>
-            )}
-
-            {/* SEARCH BUTTON */}
-            <button
-              onClick={() => searchMovies()}
-              disabled={!query.trim() || isLoading}
-              style={{
-                position: "absolute",
-                right: "10px",
-                zIndex: 2,
-                padding: "14px 28px",
-                borderRadius: "30px",
-                border: "none",
-                background: query.trim() && !isLoading ? "#e50914" : "#999",
-                color: "white",
-                cursor: query.trim() && !isLoading ? "pointer" : "not-allowed",
-                fontWeight: "700",
-                fontSize: "15px",
-                letterSpacing: "0.5px",
-                transition: "all 0.3s ease",
-                boxShadow: query.trim() && !isLoading ? "0 10px 30px rgba(229, 9, 20, 0.35)" : "none"
-              }}
-              onMouseOver={(e) => {
-                if (query.trim() && !isLoading) {
-                  e.target.style.background = "#ff1a1a";
-                  e.target.style.transform = "scale(1.05)";
-                }
-              }}
-              onMouseOut={(e) => {
-                if (query.trim() && !isLoading) {
-                  e.target.style.background = "#e50914";
-                  e.target.style.transform = "scale(1)";
-                }
-              }}
-            >
-              {isLoading ? "" : "Search"}
-            </button>
-          </div>
-
-          {/* ================= FILTERS TOGGLE ================= */}
-          <div style={{
-            display: "flex",
-            justifyContent: "center",
-            marginTop: "20px",
-            gap: "15px"
-          }}>
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              style={{
-                padding: "8px 16px",
-                borderRadius: "20px",
-                border: "1px solid rgba(255,255,255,0.3)",
-                background: showFilters ? "rgba(229, 9, 20, 0.2)" : "transparent",
-                color: "white",
-                cursor: "pointer",
-                fontSize: "14px",
-                transition: "all 0.3s ease"
-              }}
-            >
-               Filters {showFilters ? "▲" : "▼"}
-            </button>
-
-            {searchHistory.length > 0 && (
-              <button
-                onClick={() => setActiveTab(activeTab === "history" ? "search" : "history")}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: "20px",
-                  border: "1px solid rgba(255,255,255,0.3)",
-                  background: activeTab === "history" ? "rgba(229, 9, 20, 0.2)" : "transparent",
-                  color: "white",
-                  cursor: "pointer",
-                  fontSize: "14px",
-                  transition: "all 0.3s ease"
-                }}
-              >
-                 History
-              </button>
-            )}
-          </div>
-
-          {/* ================= FILTERS PANEL ================= */}
-          {showFilters && (
-            <div style={{
-              marginTop: "20px",
-              padding: "20px",
-              background: "rgba(255,255,255,0.1)",
-              backdropFilter: "blur(10px)",
-              borderRadius: "15px",
-              border: "1px solid rgba(255,255,255,0.2)"
-            }}>
-              <div style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-                gap: "15px"
-              }}>
-                <select
-                  value={filters.genre}
-                  onChange={(e) => setFilters({...filters, genre: e.target.value})}
-                  style={{
-                    padding: "10px",
-                    borderRadius: "8px",
-                    border: "1px solid rgba(255,255,255,0.3)",
-                    background: "rgba(255,255,255,0.1)",
-                    color: "white",
-                    outline: "none"
-                  }}
-                >
-                  <option value="">All Genres</option>
-                  <option value="28">Action</option>
-                  <option value="12">Adventure</option>
-                  <option value="16">Animation</option>
-                  <option value="35">Comedy</option>
-                  <option value="80">Crime</option>
-                  <option value="99">Documentary</option>
-                  <option value="18">Drama</option>
-                  <option value="10751">Family</option>
-                  <option value="14">Fantasy</option>
-                  <option value="36">History</option>
-                  <option value="27">Horror</option>
-                  <option value="10402">Music</option>
-                  <option value="9648">Mystery</option>
-                  <option value="10749">Romance</option>
-                  <option value="878">Science Fiction</option>
-                  <option value="10770">TV Movie</option>
-                  <option value="53">Thriller</option>
-                  <option value="10752">War</option>
-                  <option value="37">Western</option>
-                </select>
-
-                <input
-                  type="number"
-                  placeholder="Release Year"
-                  value={filters.year}
-                  onChange={(e) => setFilters({...filters, year: e.target.value})}
-                  style={{
-                    padding: "10px",
-                    borderRadius: "8px",
-                    border: "1px solid rgba(255,255,255,0.3)",
-                    background: "rgba(255,255,255,0.1)",
-                    color: "white",
-                    outline: "none"
-                  }}
+              {/* SEARCH INPUT WITH MIC */}
+              <div className="flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-4 py-2 shadow-2xl">
+                <motion.input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Search for movies, actors, directors..."
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && searchMovies()}
+                  className="flex-1 bg-transparent outline-none text-white placeholder-gray-400 text-lg font-medium min-w-0"
                 />
-
-                <select
-                  value={filters.rating}
-                  onChange={(e) => setFilters({...filters, rating: e.target.value})}
-                  style={{
-                    padding: "10px",
-                    borderRadius: "8px",
-                    border: "1px solid rgba(255,255,255,0.3)",
-                    background: "rgba(255,255,255,0.1)",
-                    color: "white",
-                    outline: "none"
-                  }}
+                <motion.button
+                  onClick={voiceSearchActive ? stopVoiceSearch : startVoiceSearch}
+                  className="px-4 py-3 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors duration-300"
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
                 >
-                  <option value="">Any Rating</option>
-                  <option value="7">⭐⭐⭐⭐⭐⭐⭐+</option>
-                  <option value="6">⭐⭐⭐⭐⭐⭐+</option>
-                  <option value="5">⭐⭐⭐⭐⭐+</option>
-                  <option value="4">⭐⭐⭐⭐+</option>
-                  <option value="3">⭐⭐⭐+</option>
-                </select>
+                  {voiceSearchActive ? "Stop" : "Mic"}
+                </motion.button>
               </div>
-            </div>
+
+              <motion.button
+                onClick={() => setShowFilters(!showFilters)}
+                className={`px-5 py-3 rounded-full border transition-all duration-300 backdrop-blur-sm ${
+                  showFilters
+                    ? 'border-electric-crimson bg-electric-crimson/20 text-white'
+                    : 'border-white/30 bg-white/5 text-gray-300 hover:border-electric-crimson hover:bg-electric-crimson/10'
+                }`}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+              >
+                Filters
+              </motion.button>
+
+              <motion.button
+                onClick={() => searchMovies()}
+                disabled={!query.trim() || isLoading}
+                className={`px-8 py-3 rounded-full font-bold text-sm uppercase tracking-wide transition-all duration-300 ${
+                  query.trim() && !isLoading
+                    ? 'bg-electric-crimson text-white shadow-lg shadow-electric-crimson/30 hover:bg-red-600'
+                    : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                }`}
+                whileHover={query.trim() && !isLoading ? { scale: 1.03 } : {}}
+                whileTap={query.trim() && !isLoading ? { scale: 0.97 } : {}}
+              >
+                {isLoading ? "..." : "Search"}
+              </motion.button>
+            </motion.div>
+
+            {/* ================= ADVANCED FILTER DRAWER ================= */}
+            <AnimatePresence>
+              {showFilters && (
+                <motion.div
+                  initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                  transition={{ duration: 0.3 }}
+                  className="absolute top-full left-0 right-0 mt-4 p-6 bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 shadow-2xl z-50"
+                >
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* GENRE SELECT */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Genre</label>
+                      <select
+                        value={filters.genre}
+                        onChange={(e) => setFilters({...filters, genre: e.target.value})}
+                        className="w-full p-3 rounded-lg bg-white/10 border border-white/20 text-white outline-none focus:border-electric-crimson transition-colors"
+                      >
+                        <option value="" className="bg-gray-800">All Genres</option>
+                        <option value="28" className="bg-gray-800">Action</option>
+                        <option value="12" className="bg-gray-800">Adventure</option>
+                        <option value="16" className="bg-gray-800">Animation</option>
+                        <option value="35" className="bg-gray-800">Comedy</option>
+                        <option value="80" className="bg-gray-800">Crime</option>
+                        <option value="99" className="bg-gray-800">Documentary</option>
+                        <option value="18" className="bg-gray-800">Drama</option>
+                        <option value="10751" className="bg-gray-800">Family</option>
+                        <option value="14" className="bg-gray-800">Fantasy</option>
+                        <option value="36" className="bg-gray-800">History</option>
+                        <option value="27" className="bg-gray-800">Horror</option>
+                        <option value="10402" className="bg-gray-800">Music</option>
+                        <option value="9648" className="bg-gray-800">Mystery</option>
+                        <option value="10749" className="bg-gray-800">Romance</option>
+                        <option value="878" className="bg-gray-800">Science Fiction</option>
+                        <option value="10770" className="bg-gray-800">TV Movie</option>
+                        <option value="53" className="bg-gray-800">Thriller</option>
+                        <option value="10752" className="bg-gray-800">War</option>
+                        <option value="37" className="bg-gray-800">Western</option>
+                      </select>
+                    </div>
+
+                    {/* RELEASE YEAR */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Release Year</label>
+                      <input
+                        type="number"
+                        placeholder="e.g. 2023"
+                        value={filters.year}
+                        onChange={(e) => setFilters({...filters, year: e.target.value})}
+                        className="w-full p-3 rounded-lg bg-white/10 border border-white/20 text-white outline-none focus:border-electric-crimson transition-colors placeholder-gray-500"
+                      />
+                    </div>
+
+                    {/* RATING RANGE */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Min Rating</label>
+                      <select
+                        value={filters.rating}
+                        onChange={(e) => setFilters({...filters, rating: e.target.value})}
+                        className="w-full p-3 rounded-lg bg-white/10 border border-white/20 text-white outline-none focus:border-electric-crimson transition-colors"
+                      >
+                        <option value="" className="bg-gray-800">Any Rating</option>
+                        <option value="9" className="bg-gray-800">9+ Stars</option>
+                        <option value="8" className="bg-gray-800">8+ Stars</option>
+                        <option value="7" className="bg-gray-800">7+ Stars</option>
+                        <option value="6" className="bg-gray-800">6+ Stars</option>
+                        <option value="5" className="bg-gray-800">5+ Stars</option>
+                      </select>
+                    </div>
+
+                    {/* STREAMING PLATFORMS */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Platforms</label>
+                      <div className="flex flex-wrap gap-2">
+                        {['Netflix', 'Prime', 'Disney+', 'HBO', 'Hulu'].map(platform => (
+                          <button
+                            key={platform}
+                            onClick={() => {
+                              const newPlatforms = filters.platforms.includes(platform)
+                                ? filters.platforms.filter(p => p !== platform)
+                                : [...filters.platforms, platform];
+                              setFilters({...filters, platforms: newPlatforms});
+                            }}
+                            className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                              filters.platforms.includes(platform)
+                                ? 'bg-electric-crimson text-white'
+                                : 'bg-white/10 text-gray-300 hover:bg-white/20'
+                            }`}
+                          >
+                            {platform}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end mt-6">
+                    <motion.button
+                      onClick={applyFilters}
+                      className="px-6 py-2 bg-electric-crimson text-white rounded-full font-medium hover:bg-red-600 transition-colors"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      Apply Filters
+                    </motion.button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+          </motion.div>
+        </motion.div>
+
+        {/* ================= ACTIVE FILTERS ================= */}
+        <AnimatePresence>
+          {activeFilters.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="px-6 mb-8"
+            >
+              <div className="flex flex-wrap gap-2 justify-center">
+                {activeFilters.map((filter, index) => (
+                  <motion.span
+                    key={index}
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    exit={{ scale: 0 }}
+                    className="inline-flex items-center gap-2 px-3 py-1 bg-electric-crimson/20 border border-electric-crimson/30 rounded-full text-sm text-white"
+                  >
+                    {filter.label}
+                    <button
+                      onClick={() => removeFilter(filter)}
+                      className="hover:text-red-300 transition-colors"
+                    >
+                      Remove
+                    </button>
+                  </motion.span>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ================= TABS ================= */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1, duration: 0.5 }}
+          className="flex justify-center flex-wrap gap-3 mb-12 px-6"
+        >
+          {[
+            { id: "search", label: "Discover" },
+            { id: "recommendations", label: "For You" },
+            { id: "trending", label: "Trending" },
+            { id: "history", label: "History" }
+          ].map(tab => (
+            <motion.button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-6 py-3 rounded-full font-semibold transition-all duration-300 backdrop-blur-sm ${
+                activeTab === tab.id
+                  ? 'bg-electric-crimson text-white shadow-lg shadow-electric-crimson/30'
+                  : 'bg-white/5 border border-white/20 text-gray-300 hover:border-electric-crimson hover:bg-electric-crimson/10'
+              }`}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              {tab.label}
+            </motion.button>
+          ))}
+        </motion.div>
+
+        {/* ================= CONTENT AREA ================= */}
+        <div className="px-6 max-w-7xl mx-auto">
+          {/* ================= SEARCH/DISCOVER TAB ================= */}
+          {activeTab === "search" && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5 }}
+            >
+              {query.trim() || movies.length > 0 ? (
+                <>
+                  <div className="flex justify-between items-center mb-8">
+                    <h2 className="text-3xl font-bold bg-gradient-to-r from-electric-crimson to-red-400 bg-clip-text text-transparent">
+                      {query.trim() ? `Results for "${query}"` : 'Search Results'}
+                    </h2>
+                    <span className="text-gray-400 text-sm">
+                      {movies.length} results found
+                    </span>
+                  </div>
+
+                  {isLoading ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                      {Array.from({ length: 10 }).map((_, i) => (
+                        <SkeletonCard key={i} />
+                      ))}
+                    </div>
+                  ) : movies.length > 0 ? (
+                    <motion.div
+                      className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6"
+                      initial="hidden"
+                      animate="visible"
+                      variants={{
+                        hidden: { opacity: 0 },
+                        visible: {
+                          opacity: 1,
+                          transition: { duration: 0.3 }
+                        }
+                      }}
+                    >
+                      {movies.map((movie, index) => (
+                        <MovieCard key={movie.id} movie={movie} index={index} />
+                      ))}
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="text-center py-16"
+                    >
+                      <h3 className="text-2xl font-bold text-white mb-4">No movies found</h3>
+                      <p className="text-gray-400 mb-6">Try a different keyword or adjust your filters.</p>
+                      <div className="flex flex-wrap justify-center gap-3">
+                        {["Inception", "The Dark Knight", "Action Movies", "Sci-Fi"].map(suggestion => (
+                          <motion.button
+                            key={suggestion}
+                            onClick={() => {
+                              setQuery(suggestion);
+                              searchMovies(suggestion);
+                            }}
+                            className="px-4 py-2 bg-white/10 hover:bg-electric-crimson/20 border border-white/20 hover:border-electric-crimson rounded-full text-sm transition-all"
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                          >
+                            {suggestion}
+                          </motion.button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </>
+              ) : (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.5 }}
+                  className="text-center py-20"
+                >
+                  <h2 className="text-3xl font-bold text-white mb-8">Start Discovering Movies</h2>
+                  <p className="text-gray-400 text-lg mb-12">Search for movies or use filters to find the right title.</p>
+                </motion.div>
+              )}
+            </motion.div>
           )}
 
-          {/* ================= AI SUGGESTIONS ================= */}
-          {(suggestions.length > 0 || isSuggestionsLoading) && (
-            <div style={{
-              position: "absolute",
-              top: "100%",
-              left: "0",
-              right: "0",
-              background: "rgba(255,255,255,0.12)",
-              backdropFilter: "blur(24px)",
-              borderRadius: "18px",
-              marginTop: "10px",
-              border: "1px solid rgba(255,255,255,0.24)",
-              maxHeight: "300px",
-              overflowY: "auto",
-              zIndex: 1000,
-              boxShadow: "0 18px 50px rgba(0,0,0,0.25)"
-            }}>
-              {isSuggestionsLoading && (
-                <div style={{
-                  padding: "15px",
-                  textAlign: "center",
-                  color: "#e50914",
-                  fontSize: "14px"
-                }}>
-                  On the Way...
-                </div>
-              )}
+          {/* ================= RECOMMENDATIONS ================= */}
+          {activeTab === "recommendations" && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5 }}
+            >
+              <div className="flex justify-between items-center mb-8">
+                <h2 className="text-3xl font-bold bg-gradient-to-r from-electric-crimson to-red-400 bg-clip-text text-transparent">
+                  Recommended for You
+                </h2>
+                <motion.button
+                  onClick={fetchRecommendations}
+                  className="px-6 py-2 bg-electric-crimson/20 hover:bg-electric-crimson/30 border border-electric-crimson/30 rounded-full text-white transition-all"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  Refresh
+                </motion.button>
+              </div>
 
-              {suggestions.slice(0, 8).map((movie, index) => (
-                <div
-                  key={movie.id || index}
-                  onClick={() => {
-                    setQuery(movie.title);
-                    setSuggestions([]);
-                    searchMovies(movie.title);
-                  }}
-                  style={{
-                    padding: "12px 20px",
-                    cursor: "pointer",
-                    borderBottom: index < suggestions.length - 1 ? "1px solid rgba(255,255,255,0.14)" : "none",
-                    transition: "all 0.2s ease",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "12px",
-                    color: "white"
-                  }}
-                  onMouseOver={(e) => {
-                    e.target.style.background = "rgba(229, 9, 20, 0.1)";
-                  }}
-                  onMouseOut={(e) => {
-                    e.target.style.background = "transparent";
+              {recommendations.length > 0 ? (
+                <motion.div
+                  className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6"
+                  initial="hidden"
+                  animate="visible"
+                  variants={{
+                    hidden: { opacity: 0 },
+                    visible: {
+                      opacity: 1,
+                      transition: { duration: 0.3 }
+                    }
                   }}
                 >
-                  <span style={{ color: "#e50914", fontSize: "16px" }}></span>
-                  <div>
-                    <div style={{ fontWeight: "500", marginBottom: "2px" }}>
-                      {movie.title}
-                    </div>
-                    {movie.release_date && (
-                      <div style={{ fontSize: "12px", color: "#bbb" }}>
-                        {movie.release_date.split('-')[0]} • ⭐ {movie.vote_average?.toFixed(1)}
-                      </div>
-                    )}
-                  </div>
+                  {recommendations.map((movie, index) => (
+                    <MovieCard key={movie.id} movie={movie} index={index} />
+                  ))}
+                </motion.div>
+              ) : (
+                <div className="text-center py-16">
+                  <h3 className="text-2xl font-bold text-white mb-4">Loading recommendations...</h3>
+                  <p className="text-gray-400">Watch some movies to get personalized suggestions.</p>
                 </div>
-              ))}
-            </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* ================= TRENDING ================= */}
+          {activeTab === "trending" && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5 }}
+            >
+              <div className="flex justify-between items-center mb-8">
+                <h2 className="text-3xl font-bold bg-gradient-to-r from-electric-crimson to-red-400 bg-clip-text text-transparent">
+                  Trending Now
+                </h2>
+                <motion.button
+                  onClick={fetchTrendingMovies}
+                  className="px-6 py-2 bg-electric-crimson/20 hover:bg-electric-crimson/30 border border-electric-crimson/30 rounded-full text-white transition-all"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  Refresh
+                </motion.button>
+              </div>
+
+              {trendingLoading ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+                  {Array.from({ length: 10 }).map((_, i) => (
+                    <SkeletonCard key={i} />
+                  ))}
+                </div>
+              ) : trendingMovies.length > 0 ? (
+                <motion.div
+                  className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6"
+                  initial="hidden"
+                  animate="visible"
+                  variants={{
+                    hidden: { opacity: 0 },
+                    visible: {
+                      opacity: 1,
+                      transition: { duration: 0.3 }
+                    }
+                  }}
+                >
+                  {trendingMovies.map((movie, index) => (
+                    <MovieCard key={movie.id || movie.title} movie={movie} index={index} />
+                  ))}
+                </motion.div>
+              ) : (
+                <div className="text-center py-16">
+                  <h3 className="text-2xl font-bold text-white mb-4">No trending movies available</h3>
+                  <p className="text-gray-400">Please try refreshing or check your connection.</p>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* ================= SEARCH HISTORY ================= */}
+          {activeTab === "history" && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5 }}
+            >
+              <div className="flex justify-between items-center mb-8">
+                <h2 className="text-3xl font-bold bg-gradient-to-r from-electric-crimson to-red-400 bg-clip-text text-transparent">
+                  Search History
+                </h2>
+                <motion.button
+                  onClick={() => {
+                    localStorage.removeItem("searchHistory");
+                    setSearchHistory([]);
+                  }}
+                  className="px-6 py-2 bg-red-600/20 hover:bg-red-600/30 border border-red-600/30 rounded-full text-white transition-all"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  Clear All
+                </motion.button>
+              </div>
+
+              {searchHistory.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {searchHistory.map((item, index) => (
+                    <motion.button
+                      key={index}
+                      onClick={() => {
+                        setQuery(item);
+                        searchMovies(item);
+                      }}
+                      className="flex items-center gap-4 p-4 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-electric-crimson/30 rounded-xl transition-all text-left"
+                      whileHover={{ scale: 1.02, y: -2 }}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                    >
+                      <span className="text-gray-300 font-medium">{item}</span>
+                    </motion.button>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-16">
+                  <h3 className="text-2xl font-bold text-white mb-4">No search history</h3>
+                  <p className="text-gray-400">Start searching to build your history.</p>
+                </div>
+              )}
+            </motion.div>
           )}
         </div>
       </div>
-
-      {/* ================= TABS ================= */}
-      <div className="search-tabs" style={{
-        display: "flex",
-        justifyContent: "center",
-        flexWrap: "nowrap",
-        marginBottom: "30px",
-        gap: "12px"
-      }}>
-        {[
-          { id: "search", label: " Search", icon: "" },
-          { id: "recommendations", label: " For You", icon: "" },
-          { id: "trending", label: " Trending", icon: "" },
-          { id: "history", label: " History", icon: "" }
-        ].map(tab => (
-          <button
-            key={tab.id}
-            className="search-tab-btn"
-            aria-pressed={activeTab === tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            style={{
-              padding: "14px 24px",
-              borderRadius: "30px",
-              border: activeTab === tab.id ? "2px solid #e50914" : "1px solid rgba(255,255,255,0.18)",
-              background: activeTab === tab.id ? "rgba(229, 9, 20, 0.25)" : "rgba(255,255,255,0.06)",
-              color: "white",
-              cursor: "pointer",
-              fontSize: "15px",
-              fontWeight: "600",
-              transition: "all 0.25s ease",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              minWidth: "120px",
-              boxShadow: activeTab === tab.id ? "0 10px 30px rgba(229, 9, 20, 0.15)" : "none"
-            }}
-          >
-            <span>{tab.icon}</span>
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* ================= CONTENT AREA ================= */}
-      <div style={{ padding: "0 20px", maxWidth: "1400px", margin: "0 auto" }}>
-
-        {/* ================= SEARCH RESULTS ================= */}
-        {activeTab === "results" && (
-          <div>
-            <div style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "30px"
-            }}>
-              <h2 style={{
-                fontSize: "2rem",
-                fontWeight: "700",
-                margin: 0,
-                background: "linear-gradient(45deg, #e50914, #ff6b6b)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent"
-              }}>
-                Search Results for "{query}"
-              </h2>
-              <span style={{ color: "#bbb", fontSize: "14px" }}>
-                {movies.length} results found
-              </span>
-            </div>
-
-            {isLoading ? (
-              <div style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-                gap: "20px"
-              }}>
-                {Array.from({ length: 12 }).map((_, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      height: "300px",
-                      background: "linear-gradient(90deg, #333 25%, #444 50%, #333 75%)",
-                      backgroundSize: "200% 100%",
-                      animation: "loading 1.5s infinite",
-                      borderRadius: "12px"
-                    }}
-                  />
-                ))}
-              </div>
-            ) : movies.length > 0 ? (
-              <div style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-                gap: "25px"
-              }}>
-                {movies.map(movie => (
-                  <MovieCard key={movie.id} movie={movie} size="medium" />
-                ))}
-              </div>
-            ) : (
-              <div style={{
-                textAlign: "center",
-                padding: "60px 20px",
-                color: "#bbb"
-              }}>
-                <div style={{ fontSize: "4rem", marginBottom: "20px" }}></div>
-                <h3 style={{ marginBottom: "10px", color: "#fff" }}>No movies found</h3>
-                <p>Try adjusting your search terms or filters</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ================= RECOMMENDATIONS ================= */}
-        {activeTab === "recommendations" && (
-          <div>
-            <div style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "30px"
-            }}>
-              <h2 style={{
-                fontSize: "2rem",
-                fontWeight: "700",
-                margin: 0,
-                background: "linear-gradient(45deg, #e50914, #ff6b6b)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent"
-              }}>
-                 Recommended for You
-              </h2>
-              <button
-                onClick={fetchRecommendations}
-                style={{
-                  padding: "10px 20px",
-                  borderRadius: "25px",
-                  border: "1px solid rgba(255,255,255,0.3)",
-                  background: "rgba(229, 9, 20, 0.1)",
-                  color: "white",
-                  cursor: "pointer",
-                  fontSize: "14px",
-                  fontWeight: "500",
-                  transition: "all 0.3s ease"
-                }}
-                onMouseOver={(e) => {
-                  e.target.style.background = "rgba(229, 9, 20, 0.3)";
-                }}
-                onMouseOut={(e) => {
-                  e.target.style.background = "rgba(229, 9, 20, 0.1)";
-                }}
-              >
-                 Refresh
-              </button>
-            </div>
-
-            {recommendations.length > 0 ? (
-              <div style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-                gap: "25px"
-              }}>
-                {recommendations.map(movie => (
-                  <MovieCard key={movie.id} movie={movie} size="medium" />
-                ))}
-              </div>
-            ) : (
-              <div style={{
-                textAlign: "center",
-                padding: "60px 20px",
-                color: "#bbb"
-              }}>
-                <div style={{ fontSize: "4rem", marginBottom: "20px" }}></div>
-                <h3 style={{ marginBottom: "10px", color: "#fff" }}>Loading recommendations...</h3>
-                <p>Watch some movies to get personalized suggestions!</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ================= TRENDING ================= */}
-        {activeTab === "trending" && (
-          <div>
-            <div style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "30px"
-            }}>
-              <h2 style={{
-                fontSize: "2rem",
-                fontWeight: "700",
-                margin: 0,
-                background: "linear-gradient(45deg, #e50914, #ff6b6b)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent"
-              }}>
-                 Trending Now
-              </h2>
-              <button
-                onClick={fetchTrendingMovies}
-                style={{
-                  padding: "10px 20px",
-                  borderRadius: "25px",
-                  border: "1px solid rgba(255,255,255,0.3)",
-                  background: "rgba(229, 9, 20, 0.1)",
-                  color: "white",
-                  cursor: "pointer",
-                  fontSize: "14px",
-                  fontWeight: "500",
-                  transition: "all 0.3s ease"
-                }}
-                onMouseOver={(e) => {
-                  e.target.style.background = "rgba(229, 9, 20, 0.3)";
-                }}
-                onMouseOut={(e) => {
-                  e.target.style.background = "rgba(229, 9, 20, 0.1)";
-                }}
-              >
-                 Refresh
-              </button>
-            </div>
-
-            {trendingLoading ? (
-              <div style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-                gap: "25px"
-              }}>
-                {Array.from({ length: 12 }).map((_, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      height: "300px",
-                      background: "linear-gradient(90deg, #333 25%, #444 50%, #333 75%)",
-                      backgroundSize: "200% 100%",
-                      animation: "loading 1.5s infinite",
-                      borderRadius: "12px"
-                    }}
-                  />
-                ))}
-              </div>
-            ) : trendingMovies.length > 0 ? (
-                      <div style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                gap: "24px"
-              }}>
-                {trendingMovies.map(movie => (
-                  <MovieCard key={movie.id || movie.title} movie={movie} size="medium" />
-                ))}
-              </div>
-            ) : (
-              <div style={{
-                textAlign: "center",
-                padding: "60px 20px",
-                color: "#bbb"
-              }}>
-                <div style={{ fontSize: "4rem", marginBottom: "20px" }}>🔥</div>
-                <h3 style={{ marginBottom: "10px", color: "#fff" }}>No trending movies available</h3>
-                <p>Please try refreshing or check your connection.</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ================= SEARCH HISTORY ================= */}
-        {activeTab === "history" && (
-          <div>
-            <div style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "30px"
-            }}>
-              <h2 style={{
-                fontSize: "2rem",
-                fontWeight: "700",
-                margin: 0,
-                background: "linear-gradient(45deg, #e50914, #ff6b6b)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent"
-              }}>
-                 Search History
-              </h2>
-              <button
-                onClick={() => {
-                  localStorage.removeItem("searchHistory");
-                  setSearchHistory([]);
-                }}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: "20px",
-                  border: "1px solid rgba(255,255,255,0.3)",
-                  background: "rgba(229, 9, 20, 0.1)",
-                  color: "white",
-                  cursor: "pointer",
-                  fontSize: "14px",
-                  transition: "all 0.3s ease"
-                }}
-                onMouseOver={(e) => {
-                  e.target.style.background = "rgba(229, 9, 20, 0.3)";
-                }}
-                onMouseOut={(e) => {
-                  e.target.style.background = "rgba(229, 9, 20, 0.1)";
-                }}
-              >
-                 Clear History
-              </button>
-            </div>
-
-            {searchHistory.length > 0 ? (
-              <div style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))",
-                gap: "15px"
-              }}>
-                {searchHistory.map((item, index) => (
-                  <div
-                    key={index}
-                    onClick={() => {
-                      setQuery(item);
-                      searchMovies(item);
-                    }}
-                    style={{
-                      padding: "15px",
-                      background: "rgba(255,255,255,0.05)",
-                      borderRadius: "10px",
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      cursor: "pointer",
-                      transition: "all 0.3s ease",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "12px"
-                    }}
-                    onMouseOver={(e) => {
-                      e.target.style.background = "rgba(229, 9, 20, 0.1)";
-                      e.target.style.borderColor = "#e50914";
-                    }}
-                    onMouseOut={(e) => {
-                      e.target.style.background = "rgba(255,255,255,0.05)";
-                      e.target.style.borderColor = "rgba(255,255,255,0.1)";
-                    }}
-                  >
-                    <span style={{ color: "#e50914", fontSize: "18px" }}>🔍</span>
-                    <span style={{ color: "white", fontWeight: "500" }}>{item}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div style={{
-                textAlign: "center",
-                padding: "60px 20px",
-                color: "#bbb"
-              }}>
-                <div style={{ fontSize: "4rem", marginBottom: "20px" }}>🕒</div>
-                <h3 style={{ marginBottom: "10px", color: "#fff" }}>No search history</h3>
-                <p>Start searching to build your history!</p>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* ================= CSS ANIMATIONS ================= */}
-      <style jsx>{`
-        @keyframes loading {
-          0% { background-position: 200% 0; }
-          100% { background-position: -200% 0; }
-        }
-
-        .movie-card:hover .movie-overlay {
-          opacity: 1 !important;
-          transform: translateY(0) !important;
-        }
-
-        .movie-card:hover .play-button {
-          opacity: 1 !important;
-          transform: translate(-50%, -50%) scale(1) !important;
-        }
-
-        @media (max-width: 768px) {
-          .movie-card {
-            width: 140px !important;
-            height: 210px !important;
-          }
-        }
-      `}</style>
     </div>
   );
 }
