@@ -447,3 +447,165 @@ a {
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   }
 }
+
+/* =====================
+   TABLET & LANDSCAPE
+===================== */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .navbar {
+    padding: 12px 24px;
+    width: calc(100% - 40px);
+  }
+
+  .hero-section {
+    padding: 100px 40px 60px 40px;
+  }
+
+  .movie-detail-hero {
+    padding: 100px 40px 60px 40px;
+  }
+
+  .watchlist-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 16px;
+  }
+
+  .search-results {
+    gap: 16px;
+  }
+}
+
+/* =====================
+   LANDSCAPE MODE
+===================== */
+@media (max-height: 500px) {
+  .hero-section {
+    height: auto;
+    padding: 80px 60px 40px 60px;
+    min-height: 100vh;
+  }
+
+  .navbar {
+    top: 8px;
+  }
+
+  .movie-detail-hero {
+    min-height: auto;
+    padding: 80px 60px 40px 60px;
+  }
+}
+
+/* =====================
+   TOUCH DEVICE OPTIMIZATION
+===================== */
+@media (hover: none) and (pointer: coarse) {
+  button,
+  .menu-icon,
+  .nav-logo,
+  a {
+    min-height: 44px;
+    min-width: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .movie-card {
+    cursor: pointer;
+    -webkit-tap-highlight-color: rgba(229, 9, 20, 0.2);
+  }
+
+  .hero-btn,
+  .auth-card button,
+  .search-tab-btn {
+    padding: 12px 20px;
+    font-size: 16px;
+    min-height: 48px;
+  }
+
+  /* Reduce transitions on touch devices for better performance */
+  * {
+    transition-duration: 0.15s !important;
+  }
+}
+
+/* =====================
+   ACCESSIBILITY
+===================== */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background: linear-gradient(135deg, #0f0f0f, #1a1a2e);
+    color: white;
+  }
+}
+
+/* =====================
+   PRINT STYLES
+===================== */
+@media print {
+  .navbar,
+  .menu-icon,
+  .mobile-menu,
+  button,
+  input {
+    display: none !important;
+  }
+
+  body {
+    background: white;
+    color: black;
+  }
+
+  a {
+    color: blue;
+  }
+}
+
+/* =====================
+   DARK MODE (if supported)
+===================== */
+@supports (aspect-ratio: 1) {
+  .movie-card {
+    aspect-ratio: 2 / 3;
+  }
+}
+
+/* =====================
+   HIGH DPI SCREENS
+===================== */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* =====================
+   LARGE SCREENS
+===================== */
+@media (min-width: 1440px) {
+  .hero-section {
+    padding: 120px 80px 80px 80px;
+  }
+
+  .movie-detail-hero {
+    padding: 120px 80px 80px 80px;
+  }
+
+  .movie-detail-card {
+    max-width: 600px;
+  }
+
+  .navbar {
+    width: calc(100% - 80px);
+    padding: 14px 32px;
+  }
+}
