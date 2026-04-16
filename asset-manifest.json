@@ -1,13 +1,13 @@
 {
   "files": {
-    "main.css": "/Watchverse---Streaming-Aggregator-Platform/static/css/main.ae96a63d.css",
+    "main.css": "/Watchverse---Streaming-Aggregator-Platform/static/css/main.ce99472d.css",
     "main.js": "/Watchverse---Streaming-Aggregator-Platform/static/js/main.11c15bdd.js",
     "index.html": "/Watchverse---Streaming-Aggregator-Platform/index.html",
-    "main.ae96a63d.css.map": "/Watchverse---Streaming-Aggregator-Platform/static/css/main.ae96a63d.css.map",
+    "main.ce99472d.css.map": "/Watchverse---Streaming-Aggregator-Platform/static/css/main.ce99472d.css.map",
     "main.11c15bdd.js.map": "/Watchverse---Streaming-Aggregator-Platform/static/js/main.11c15bdd.js.map"
   },
   "entrypoints": [
-    "static/css/main.ae96a63d.css",
+    "static/css/main.ce99472d.css",
     "static/js/main.11c15bdd.js"
   ]
 }
