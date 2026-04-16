@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { toast } from "react-toastify";
 import API from "../services/api";
 
 function AnimatedBackground() {
@@ -56,18 +57,18 @@ function Register() {
 
   const handleRegister = async () => {
     if (!form.name || !form.email || !form.password) {
-      alert("Please fill in all fields");
+      toast.error("Please fill in all fields");
       return;
     }
 
     setIsLoading(true);
     try {
       await API.post("/auth/register", form);
-      alert("Registered Successfully ✅");
+      toast.success("Registration successful! Redirecting to login...");
       navigate("/login");
     } catch (error) {
       console.log(error.response || error);
-      alert(error.response?.data?.message || "Registration failed ❌");
+      toast.error(error.response?.data?.message || "Registration failed");
     } finally {
       setIsLoading(false);
     }

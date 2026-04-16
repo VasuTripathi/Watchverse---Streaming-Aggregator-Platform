@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useContext, useState } from "react";
+import { toast } from "react-toastify";
 import { AuthContext } from "../context/AuthContext";
 import Logo from "./Logo";
 
@@ -19,6 +20,7 @@ function Navbar() {
     localStorage.removeItem("token");
     setMenuOpen(false);
     navigate("/login");
+    toast.info("Logged out successfully.");
   };
 
   return (

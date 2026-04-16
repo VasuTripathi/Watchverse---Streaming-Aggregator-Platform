@@ -218,7 +218,7 @@ function Home() {
                   {movie.title}
                 </p>
                 <p style={{ fontSize: "12px", color: "#ccc", margin: "6px 0 0" }}>
-                  {movie.release_date?.split('-')[0] || 'Unknown'} • ⭐ {movie.vote_average?.toFixed(1)}
+                  {movie.release_date?.split('-')[0] || 'Unknown'} • {movie.vote_average?.toFixed(1)}
                 </p>
               </div>
 

@@ -6,6 +6,8 @@ exports.addToWatchlist = async (req, res) => {
     const userId = req.user; // from authMiddleware
     const movie = req.body;
 
+    console.log("📌 Adding to watchlist - UserId:", userId, "Movie:", movie);
+
     // Validate movieId is present
     if (!movie.movieId) {
       return res.status(400).json({ message: "movieId is required" });
@@ -18,13 +20,18 @@ exports.addToWatchlist = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    console.log("👤 User found:", user.id);
+
     // Convert string to array safely
     let watchlist = [];
     try {
       watchlist = user.watchlist ? JSON.parse(user.watchlist) : [];
     } catch (e) {
+      console.warn("⚠️ JSON parse error for watchlist:", e.message);
       watchlist = [];
     }
+
+    console.log("📋 Current watchlist length:", watchlist.length);
 
     // Check if movie already exists
     const exists = watchlist.find(
@@ -40,7 +47,10 @@ exports.addToWatchlist = async (req, res) => {
       movieId: String(movie.movieId), // ensure consistent string type
       title: movie.title,
       poster: movie.poster,
+      dateAdded: new Date().toISOString(),
     });
+
+    console.log("➕ Movie added, new watchlist length:", watchlist.length);
 
     // Save updated watchlist using findByIdAndUpdate (no .save() needed)
     const updatedUser = await User.findByIdAndUpdate(userId, {
@@ -51,9 +61,11 @@ exports.addToWatchlist = async (req, res) => {
       return res.status(500).json({ message: "Failed to update watchlist" });
     }
 
+    console.log("✅ Watchlist updated successfully");
+
     res.json({ message: "Movie added to watchlist", watchlist });
   } catch (error) {
-    console.error("addToWatchlist error:", error);
+    console.error("❌ addToWatchlist error:", error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -62,6 +74,8 @@ exports.addToWatchlist = async (req, res) => {
 exports.getWatchlist = async (req, res) => {
   try {
     const userId = req.user;
+
+    console.log("📌 Get Watchlist - UserId:", userId);
 
     // Use findById (not findByPk - that was wrong)
     const user = await User.findById(userId);
@@ -74,12 +88,15 @@ exports.getWatchlist = async (req, res) => {
     try {
       watchlist = user.watchlist ? JSON.parse(user.watchlist) : [];
     } catch (e) {
+      console.warn("⚠️ JSON parse error:", e.message);
       watchlist = [];
     }
 
+    console.log("✅ Returning watchlist with", watchlist.length, "movies");
+
     res.json(watchlist);
   } catch (error) {
-    console.error("getWatchlist error:", error);
+    console.error("❌ getWatchlist error:", error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -89,6 +106,8 @@ exports.removeFromWatchlist = async (req, res) => {
   try {
     const userId = req.user;
     const { movieId } = req.body;
+
+    console.log("📌 Remove from Watchlist - UserId:", userId, "MovieId:", movieId);
 
     if (!movieId) {
       return res.status(400).json({ message: "movieId is required" });
@@ -105,13 +124,18 @@ exports.removeFromWatchlist = async (req, res) => {
     try {
       watchlist = user.watchlist ? JSON.parse(user.watchlist) : [];
     } catch (e) {
+      console.warn("⚠️ JSON parse error:", e.message);
       watchlist = [];
     }
+
+    console.log("📋 Before removal - watchlist length:", watchlist.length);
 
     // Filter out movie (compare as strings for safety)
     watchlist = watchlist.filter(
       (item) => String(item.movieId) !== String(movieId)
     );
+
+    console.log("📋 After removal - watchlist length:", watchlist.length);
 
     // Save using findByIdAndUpdate (no .save() needed)
     const updatedUser = await User.findByIdAndUpdate(userId, {
@@ -122,9 +146,11 @@ exports.removeFromWatchlist = async (req, res) => {
       return res.status(500).json({ message: "Failed to update watchlist" });
     }
 
+    console.log("✅ Movie removed successfully");
+
     res.json({ message: "Movie removed", watchlist });
   } catch (error) {
-    console.error("removeFromWatchlist error:", error);
+    console.error("❌ removeFromWatchlist error:", error);
     res.status(500).json({ message: error.message });
   }
 };

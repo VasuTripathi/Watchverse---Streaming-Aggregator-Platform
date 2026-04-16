@@ -197,7 +197,6 @@ a {
   background-position: center;
   background-blend-mode: darken;
   background-color: rgba(0, 0, 0, 0.55);
-
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -205,6 +204,25 @@ a {
   padding: 100px 60px 60px 60px;
 
   transition: background-image 0.8s ease-in-out;
+}
+
+/* TOAST NOTIFICATION STYLES */
+.toast-container-glass {
+  background: rgba(10, 10, 20, 0.78) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.25) !important;
+  color: #ffffff !important;
+}
+
+.toast-body-glass {
+  color: #f8f8ff !important;
+  font-weight: 500 !important;
+}
+
+.toast-progress-glass {
+  background: rgba(229, 9, 20, 0.95) !important;
 }
 
 .hero-title {

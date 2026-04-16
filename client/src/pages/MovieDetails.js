@@ -1,5 +1,6 @@
 import { useEffect, useState, useContext, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import axios from "axios";
 
 import API from "../services/api";
@@ -66,49 +67,60 @@ function MovieDetails() {
   const addToWatchlist = async () => {
     try {
       if (!token) {
-        alert("Please login first ❗");
+        toast.warning("Please login first to add to watchlist");
         navigate("/login");
         return;
       }
 
       if (!movie || !movie.id) {
-        alert("Movie data not loaded yet, please wait.");
+        toast.info("Movie data is loading, please wait a moment...");
         return;
       }
 
       const movieId = String(movie.id);
-      console.log("Sending movieId:", movieId);
+      console.log("🎬 Adding to watchlist - MovieID:", movieId, "Token exists:", !!token);
+
+      const payload = {
+        movieId: movieId,
+        title: movie.title,
+        poster: movie.poster_path,
+      };
+
+      console.log("📤 Sending payload:", payload);
 
       const res = await API.post(
         "/watchlist/add",
-        {
-          movieId: movieId,
-          title: movie.title,
-          poster: movie.poster_path,
-        },
+        payload,
         {
           headers: {
             Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
           },
         }
       );
 
-      console.log("SUCCESS:", res.data);
-      alert("Added to Watchlist ✅");
+      console.log("✅ SUCCESS response:", res.data);
+      if (res.data?.message?.toLowerCase().includes("already in watchlist")) {
+        toast.info("This movie is already in your watchlist.");
+      } else {
+        toast.success("Added to Watchlist");
+      }
 
     } catch (error) {
-      console.log("ERROR:", error.response || error);
+      console.error("❌ ERROR full object:", error);
+      console.error("Response status:", error.response?.status);
+      console.error("Response data:", error.response?.data);
 
-      const message = error.response?.data?.message || "";
+      const message = error.response?.data?.message || error.message || "Unknown error";
 
       // ✅ FIX: If token is stale/invalid, auto logout and redirect to login
       if (
         error.response?.status === 401 ||
         message.toLowerCase().includes("invalid token") ||
         message.toLowerCase().includes("not authorized") ||
-        message.toLowerCase().includes("log in again")
+        message.toLowerCase().includes("no token")
       ) {
-        alert("Your session has expired. Please log in again. ❗");
+        toast.error("Your session has expired. Please log in again.");
         // Clear the bad token
         if (auth?.logout) {
           auth.logout();
@@ -119,7 +131,7 @@ function MovieDetails() {
         return;
       }
 
-      alert(message || "Error adding to watchlist");
+      toast.error(message || "Failed to add to watchlist");
     }
   };
 
@@ -150,7 +162,7 @@ function MovieDetails() {
           }}
         >
           <h1>{movie.title}</h1>
-          <p>⭐ {movie.vote_average}</p>
+          <p>{movie.vote_average}</p>
           <p>{movie.overview}</p>
 
           <button

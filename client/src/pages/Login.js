@@ -1,6 +1,7 @@
 import { useState, useContext, useRef, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { toast } from "react-toastify";
 import API from "../services/api";
 import { AuthContext } from "../context/AuthContext";
 
@@ -62,7 +63,7 @@ function Login() {
   // Handle login
   const handleLogin = async () => {
     if (!form.email || !form.password) {
-      alert("Please fill in all fields");
+      toast.error("Please fill in all fields");
       return;
     }
 
@@ -75,10 +76,12 @@ function Login() {
       login(data.token);
       localStorage.setItem("token", data.token);
 
+      toast.success("Login successful! Welcome back");
+
       navigate("/");
     } catch (error) {
       console.log(error.response || error);
-      alert(error.response?.data?.message || "Invalid Credentials ❌");
+      toast.error(error.response?.data?.message || "Invalid Credentials");
     } finally {
       setIsLoading(false);
     }
