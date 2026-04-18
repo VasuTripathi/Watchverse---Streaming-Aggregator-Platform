@@ -532,6 +532,15 @@ a {
     -webkit-tap-highlight-color: rgba(229, 9, 20, 0.2);
   }
 
+  /* Disable hover effects on touch devices to prevent accidental activation during scroll */
+  .movie-row div:hover {
+    transform: none !important;
+  }
+  .movie-row div:hover .overlay {
+    opacity: 0 !important;
+    transform: translateY(20px) !important;
+  }
+
   .hero-btn,
   .auth-card button,
   .search-tab-btn {

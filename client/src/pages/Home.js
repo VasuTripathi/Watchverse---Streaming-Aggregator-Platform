@@ -89,6 +89,9 @@ function Home() {
  const MovieRow = ({ title, movies }) => {
   const rowRef = useRef(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
+  const isScrolling = useRef(false);
 
   const scrollRow = (direction) => {
     if (!rowRef.current) return;
@@ -149,7 +152,11 @@ function Home() {
                 background: "#111",
                 touchAction: 'manipulation'
               }}
-              onClick={() => { handleMovieClick(movie); navigate(`/movie/${movie.id}`); }}
+              onClick={() => { 
+                if (isScrolling.current) return; // Prevent click if scrolling
+                handleMovieClick(movie); 
+                navigate(`/movie/${movie.id}`); 
+              }}
               onMouseOver={(e) => {
                 e.currentTarget.style.transform = "translateY(-6px) scale(1.03)";
                 e.currentTarget.style.zIndex = "2";
@@ -169,6 +176,9 @@ function Home() {
                 }
               }}
               onTouchStart={(e) => {
+                touchStartX.current = e.touches[0].clientX;
+                touchStartY.current = e.touches[0].clientY;
+                isScrolling.current = false;
                 e.currentTarget.style.transform = "translateY(-6px) scale(1.03)";
                 e.currentTarget.style.zIndex = "2";
                 const overlay = e.currentTarget.querySelector('.overlay');
@@ -177,7 +187,17 @@ function Home() {
                   overlay.style.transform = 'translateY(0px)';
                 }
               }}
+              onTouchMove={(e) => {
+                const deltaX = Math.abs(e.touches[0].clientX - touchStartX.current);
+                const deltaY = Math.abs(e.touches[0].clientY - touchStartY.current);
+                if (deltaX > 10 || deltaY > 10) {
+                  isScrolling.current = true;
+                }
+              }}
               onTouchEnd={(e) => {
+                setTimeout(() => {
+                  isScrolling.current = false;
+                }, 100); // Reset after click would fire
                 e.currentTarget.style.transform = "translateY(0) scale(1)";
                 e.currentTarget.style.zIndex = "1";
                 const overlay = e.currentTarget.querySelector('.overlay');
