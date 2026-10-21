@@ -490,7 +490,7 @@ This project is licensed under the ISC License - see the LICENSE file for detail
 
 ### Contact
 - **Issues**: [GitHub Issues](https://github.com/VasuTripathi/Watchverse/issues)
-- **Email**: [Your Email]
+- **Email**: [tripathivasu7@gmail.com]
 - **Discord**: [Your Discord]
 
 ---
