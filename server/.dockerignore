@@ -10,5 +10,11 @@ README.md
 .idea
 .DS_Store
 logs
+*.sqlite
+*.sqlite3
+*.db
+*-journal
+*-wal
+*-shm
 .docker*
 .git*

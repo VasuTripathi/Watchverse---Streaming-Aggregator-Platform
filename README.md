@@ -237,9 +237,19 @@ POST   /api/auth/login        - Login user
 
 ### Movies & Search
 ```
-GET    /api/search?query=...  - Search movies
-GET    /api/movie/:id         - Get movie details
+GET    /api/movies/popular            - Get popular movies
+GET    /api/movies/top-rated          - Get top-rated movies
+GET    /api/movies/trending/:period   - Get trending movies (day or week)
+GET    /api/movies/discover           - Discover movies with validated filters
+GET    /api/movies/search?query=...   - Search movies
+GET    /api/movies/movie/:id          - Get movie details
+GET    /api/movies/movie/:id/videos   - Get movie videos
+GET    /api/movies/movie/:id/similar  - Get similar movies
+GET    /api/movies/movie/:id/providers - Get streaming providers
+GET    /api/search/ai-suggestions?query=... - Get AI-enhanced search suggestions
 ```
+
+Movie catalog requests are proxied by the backend using `TMDB_API_KEY` from the server environment; do not put this key in frontend configuration.
 
 ### Watchlist
 ```
