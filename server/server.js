@@ -12,6 +12,9 @@ const logger = require("./utils/logger");
 // 🔥 CREATE APP
 const app = express();
 
+// Render forwards one proxy hop; trust it so visitors get separate rate-limit buckets.
+app.set("trust proxy", 1);
+
 // ================= DATABASE =================
 connectDB();
 
@@ -26,6 +29,23 @@ app.use(helmet({
       imgSrc: ["'self'", "data:", "https:"],
     },
   },
+}));
+
+const defaultCorsOrigins = [
+  "http://localhost:3000",
+  "http://localhost:5000",
+  "https://vasutripathi.github.io",
+  "https://watchverse.netlify.app",
+  "https://watchverse.vercel.app",
+];
+const corsOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(",").map(origin => origin.trim()).filter(Boolean)
+  : defaultCorsOrigins;
+
+app.use(cors({
+  origin: corsOrigins,
+  credentials: true,
+  optionsSuccessStatus: 200,
 }));
 
 // Rate limiting for API endpoints
@@ -52,19 +72,6 @@ app.use("/api/auth/register", authLimiter);
 // ================= STANDARD MIDDLEWARE =================
 // Compression middleware
 app.use(compression());
-
-// CORS configuration
-app.use(cors({
-  origin: process.env.CORS_ORIGIN?.split(',') || [
-    "http://localhost:3000",
-    "http://localhost:5000",
-    "https://vasutripathi.github.io",
-    "https://watchverse.netlify.app", // For future Netlify deployment
-    "https://watchverse.vercel.app", // For future Vercel deployment
-  ],
-  credentials: true,
-  optionsSuccessStatus: 200,
-}));
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));

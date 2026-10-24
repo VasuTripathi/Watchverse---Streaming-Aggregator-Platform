@@ -316,6 +316,7 @@ Full API documentation: See [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md#-api-doc
 - CORS origin validation
 - Rate limiting (100 req/15min)
 - Auth rate limiting (5 attempts/15min)
+- Proxy-aware client IP limits; CORS headers are applied to throttled responses
 - HTTPS required (production)
 - Security headers (Helmet)
 - Request timeout (30s)
