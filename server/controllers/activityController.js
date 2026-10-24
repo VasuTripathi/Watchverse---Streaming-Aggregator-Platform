@@ -2,22 +2,22 @@ const Activity = require("../models/Activity");
 
 const saveActivity = async (req, res) => {
   try {
-    const { user_id, movie } = req.body;
+    const { movie } = req.body;
 
-    if (!user_id || !movie) {
-      return res.status(400).json({ message: "user_id and movie are required" });
+    if (!movie || typeof movie !== "object" || Array.isArray(movie)) {
+      return res.status(400).json({ message: "movie must be a movie object" });
     }
 
     const activity = await Activity.create({
-      user_id,
+      user_id: req.user,
       movie,
       created_at: new Date()
     });
 
-    res.status(201).json({ message: "Activity saved", activity });
+    return res.status(201).json({ message: "Activity saved", activity });
   } catch (error) {
     console.error("Error saving activity:", error);
-    res.status(500).json({ message: "Failed to save activity" });
+    return res.status(500).json({ message: "Failed to save activity" });
   }
 };
 

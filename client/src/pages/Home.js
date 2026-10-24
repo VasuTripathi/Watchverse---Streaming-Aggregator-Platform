@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../services/api";
 
@@ -19,23 +19,11 @@ function Home() {
 
   const navigate = useNavigate();
 
-  const handleMovieClick = (movie) => {
-    const userId = localStorage.getItem("userId"); // or from auth
-
-    fetch("http://localhost:5000/api/activity", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        user_id: userId,
-        movie: movie
-      })
-    })
-    .then(res => res.json())
-    .then(data => console.log("Activity saved"))
-    .catch(err => console.error(err));
-  };
+  const handleMovieClick = useCallback((movie) => {
+    if (!localStorage.getItem("token")) return;
+    API.post("/activity", { movie })
+      .catch((err) => console.error("Failed to save movie activity:", err.response?.status));
+  }, []);
 
   // 🎬 Fetch Movies
   useEffect(() => {
@@ -43,8 +31,8 @@ function Home() {
       try {
         setLoading(true);
         setError(null);
-        const userId = localStorage.getItem("userId");
-        const [trendingRes, topRatedRes, popularRes, actionRes, thrillerRes, horrorRes, comedyRes, recRes] = await Promise.all([
+        const hasToken = Boolean(localStorage.getItem("token"));
+        const catalogRequests = [
           API.get("/movies/trending/day"),
           API.get("/movies/top-rated"),
           API.get("/movies/popular"),
@@ -52,18 +40,51 @@ function Home() {
           API.get("/movies/discover", { params: { genre: 53 } }),
           API.get("/movies/discover", { params: { genre: 27 } }),
           API.get("/movies/discover", { params: { genre: 35 } }),
-          userId
-            ? API.get("/recommendations", { params: { user_id: userId } })
-            : Promise.resolve({ data: { recommendations: [] } })
+        ];
+        const setters = [
+          setTrending,
+          setTopRated,
+          setPopular,
+          setActionMovies,
+          setThrillerMovies,
+          setHorrorMovies,
+          setComedyMovies,
+        ];
+        const [catalogResults, recommendationResult] = await Promise.all([
+          Promise.allSettled(catalogRequests),
+          hasToken
+            ? API.get("/recommendations").then(
+                (response) => ({ status: "fulfilled", value: response.data }),
+                (reason) => ({ status: "rejected", reason })
+              )
+            : Promise.resolve({ status: "fulfilled", value: { recommendations: [] } }),
         ]);
-        setTrending(trendingRes.data.results);
-        setTopRated(topRatedRes.data.results);
-        setPopular(popularRes.data.results);
-        setActionMovies(actionRes.data.results);
-        setThrillerMovies(thrillerRes.data.results);
-        setHorrorMovies(horrorRes.data.results);
-        setComedyMovies(comedyRes.data.results);
-        setRecommendations(recRes.data.recommendations || []);
+
+        let firstCatalogError;
+        catalogResults.forEach((result, index) => {
+          if (result.status === "fulfilled" && Array.isArray(result.value.data.results)) {
+            setters[index](result.value.data.results);
+          } else {
+            setters[index]([]);
+            firstCatalogError ||= result.status === "rejected"
+              ? result.reason
+              : new Error("Movie catalog returned an invalid response");
+          }
+        });
+
+        if (recommendationResult.status === "fulfilled") {
+          setRecommendations(recommendationResult.value.recommendations || []);
+        } else {
+          setRecommendations([]);
+          console.error("Failed to load recommendations:", recommendationResult.reason.response?.status);
+        }
+
+        if (firstCatalogError) {
+          setError(
+            firstCatalogError.response?.data?.message ||
+            "Some movie categories could not be loaded. Please try again."
+          );
+        }
       } catch (err) {
         setError(err.response?.data?.message || 'Failed to load movies. Please try again.');
         console.error("Failed to load movies:", err.response?.status);
@@ -107,6 +128,8 @@ function Home() {
     if (!rowRef.current) return;
     setShowLeftArrow(rowRef.current.scrollLeft > 30);
   };
+
+  if (!Array.isArray(movies) || movies.length === 0) return null;
 
   return (
     <div style={{ marginBottom: "40px", position: "relative" }}>

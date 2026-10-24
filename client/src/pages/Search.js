@@ -129,18 +129,13 @@ function Search() {
 
   // ================= MOVIE CLICK HANDLER =================
   const handleMovieClick = async (movie) => {
-    const userId = localStorage.getItem("userId");
     let movieId = movie?.id || movie?.tmdb_id || movie?.movie_id;
 
-    if (userId) {
+    if (localStorage.getItem("token")) {
       try {
-        await fetch("http://localhost:5000/api/activity", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: userId, movie })
-        });
+        await API.post("/activity", { movie });
       } catch (err) {
-        console.error("Error saving activity:", err);
+        console.error("Error saving activity:", err.response?.status);
       }
     }
 
@@ -165,15 +160,15 @@ function Search() {
   // ================= FETCH RECOMMENDATIONS =================
   const fetchRecommendations = async () => {
     try {
-      const userId = localStorage.getItem("userId");
+      const hasToken = Boolean(localStorage.getItem("token"));
 
-      if (!userId) {
+      if (!hasToken) {
         const popularRes = await API.get("/movies/popular");
         setRecommendations(popularRes.data.results.slice(0, 12));
         return;
       }
 
-      const res = await API.get("/recommendations", { params: { user_id: userId } });
+      const res = await API.get("/recommendations");
       setRecommendations(res.data.recommendations || []);
 
       if (!res.data.recommendations || res.data.recommendations.length === 0) {

@@ -67,7 +67,7 @@ function Register() {
       toast.success("Registration successful! Redirecting to login...");
       navigate("/login");
     } catch (error) {
-      console.log(error.response || error);
+      console.error("Registration request failed:", error.response?.status);
       toast.error(error.response?.data?.message || "Registration failed");
     } finally {
       setIsLoading(false);
@@ -78,7 +78,7 @@ function Register() {
     <div
       className="min-h-screen text-white overflow-hidden relative"
       style={{
-        backgroundImage: "url('/login-bg.jpg')",
+        backgroundColor: "#0f0f0f",
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
