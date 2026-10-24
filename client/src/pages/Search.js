@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import API from "../services/api";
@@ -46,14 +46,12 @@ function AnimatedBackground() {
 function Search() {
   const [query, setQuery] = useState("");
   const [movies, setMovies] = useState([]);
-  const [suggestions, setSuggestions] = useState([]);
   const [recommendations, setRecommendations] = useState([]);
   const [trendingMovies, setTrendingMovies] = useState([]);
   const [trendingLoading, setTrendingLoading] = useState(false);
   const [searchHistory, setSearchHistory] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchError, setSearchError] = useState("");
-  const [isSuggestionsLoading, setIsSuggestionsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("search");
   const [voiceSearchActive, setVoiceSearchActive] = useState(false);
   const [filters, setFilters] = useState({
@@ -129,18 +127,13 @@ function Search() {
 
   // ================= MOVIE CLICK HANDLER =================
   const handleMovieClick = async (movie) => {
-    const userId = localStorage.getItem("userId");
     let movieId = movie?.id || movie?.tmdb_id || movie?.movie_id;
 
-    if (userId) {
+    if (localStorage.getItem("token")) {
       try {
-        await fetch("http://localhost:5000/api/activity", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: userId, movie })
-        });
+        await API.post("/activity", { movie });
       } catch (err) {
-        console.error("Error saving activity:", err);
+        console.error("Error saving activity:", err.response?.status);
       }
     }
 
@@ -151,7 +144,7 @@ function Search() {
         });
         movieId = searchRes.data.results?.[0]?.id;
       } catch (searchErr) {
-        console.error("Error resolving movie id from title:", searchErr);
+        console.error("Error resolving movie id from title:", searchErr.response?.status);
       }
     }
 
@@ -165,15 +158,15 @@ function Search() {
   // ================= FETCH RECOMMENDATIONS =================
   const fetchRecommendations = async () => {
     try {
-      const userId = localStorage.getItem("userId");
+      const hasToken = Boolean(localStorage.getItem("token"));
 
-      if (!userId) {
+      if (!hasToken) {
         const popularRes = await API.get("/movies/popular");
         setRecommendations(popularRes.data.results.slice(0, 12));
         return;
       }
 
-      const res = await API.get("/recommendations", { params: { user_id: userId } });
+      const res = await API.get("/recommendations");
       setRecommendations(res.data.recommendations || []);
 
       if (!res.data.recommendations || res.data.recommendations.length === 0) {
@@ -208,7 +201,7 @@ function Search() {
   };
 
   // ================= SEARCH MOVIES =================
-  const searchMovies = async (searchQuery = query, searchFilters = filters) => {
+  const searchMovies = useCallback(async (searchQuery = query, searchFilters = filters) => {
     const trimmedQuery = searchQuery.trim();
     const hasFilter = searchFilters.genre || searchFilters.year || searchFilters.rating || searchFilters.platforms.length > 0;
 
@@ -219,16 +212,16 @@ function Search() {
     if (trimmedQuery) saveToHistory(trimmedQuery);
 
     try {
-      const filters = {
+      const movieFilters = {
         year: searchFilters.year || undefined,
         genre: searchFilters.genre || undefined,
         rating: searchFilters.rating || undefined,
       };
       const res = trimmedQuery
         ? await API.get("/movies/search", {
-            params: { query: trimmedQuery, ...filters }
+            params: { query: trimmedQuery, ...movieFilters }
           })
-        : await API.get("/movies/discover", { params: filters });
+        : await API.get("/movies/discover", { params: movieFilters });
       let results = res.data.results || [];
 
       if (searchFilters.platforms.length > 0) {
@@ -244,20 +237,19 @@ function Search() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [filters, query]);
 
   // ================= AUTO SEARCH AS YOU TYPE =================
   useEffect(() => {
     const delay = setTimeout(() => {
       if (!query.trim()) {
-        setSuggestions([]);
         return;
       }
       searchMovies(query, filters);
     }, 500);
 
     return () => clearTimeout(delay);
-  }, [query]);
+  }, [filters, query, searchMovies]);
 
   // ================= INITIAL LOAD =================
   useEffect(() => {
@@ -283,7 +275,7 @@ function Search() {
     }
     setActiveFilters(newActiveFilters);
     setShowFilters(false);
-    searchMovies(query, filters);
+    if (!query.trim()) searchMovies(query, filters);
   };
 
   const removeFilter = (filterToRemove) => {
@@ -326,16 +318,6 @@ function Search() {
       document.removeEventListener('touchstart', handleClickOutside);
     };
   }, []);
-
-  // ================= CLEAR SEARCH =================
-  const clearSearch = () => {
-    setQuery("");
-    setMovies([]);
-    setActiveTab("search");
-    if (searchInputRef.current) {
-      searchInputRef.current.focus();
-    }
-  };
 
   // ================= SKELETON LOADER =================
   const SkeletonCard = () => (

@@ -1,7 +1,6 @@
-import React, { useEffect, useState, useContext } from "react";
+import React, { useCallback, useEffect, useState, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import axios from "axios";
 
 import API from "../services/api";
 import { AuthContext } from "../context/AuthContext";
@@ -15,19 +14,7 @@ function Watchlist() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("added"); // "added", "title", "rating"
-  const [filterGenre, setFilterGenre] = useState("all");
-
-  // Fetch watchlist
-  useEffect(() => {
-    if (!token) {
-      navigate("/login");
-      return;
-    }
-
-    fetchWatchlist();
-  }, [token, navigate]);
-
-  const fetchWatchlist = async () => {
+  const fetchWatchlist = useCallback(async () => {
     try {
       setLoading(true);
       const res = await API.get("/watchlist", {
@@ -37,7 +24,7 @@ function Watchlist() {
       });
       setWatchlist(res.data || []);
     } catch (error) {
-      console.error("Error fetching watchlist:", error);
+      console.error("Watchlist request failed:", error.response?.status);
       
       if (error.response?.status === 401) {
         toast.error("Session expired. Please log in again.");
@@ -53,7 +40,16 @@ function Watchlist() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [auth, navigate, token]);
+
+  useEffect(() => {
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+
+    fetchWatchlist();
+  }, [fetchWatchlist, token, navigate]);
 
   const removeFromWatchlist = async (movieId) => {
     try {
@@ -69,7 +65,7 @@ function Watchlist() {
       setWatchlist(watchlist.filter((m) => String(m.movieId) !== String(movieId)));
       toast.success("Removed from Watchlist");
     } catch (error) {
-      console.error("Error removing from watchlist:", error);
+      console.error("Watchlist removal failed:", error.response?.status);
       toast.error("Failed to remove from watchlist");
     }
   };

@@ -67,7 +67,7 @@ function Register() {
       toast.success("Registration successful! Redirecting to login...");
       navigate("/login");
     } catch (error) {
-      console.log(error.response || error);
+      console.error("Registration request failed:", error.response?.status);
       toast.error(error.response?.data?.message || "Registration failed");
     } finally {
       setIsLoading(false);
@@ -78,7 +78,7 @@ function Register() {
     <div
       className="min-h-screen text-white overflow-hidden relative"
       style={{
-        backgroundImage: "url('/login-bg.jpg')",
+        backgroundColor: "#0f0f0f",
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
@@ -212,30 +212,5 @@ function Register() {
     </div>
   );
 }
-
-/* 🔥 INPUT STYLE */
-const inputStyle = {
-  width: "100%",
-  padding: "12px",
-  marginBottom: "15px",
-  borderRadius: "8px",
-  border: "1px solid rgba(255,255,255,0.08)",
-  outline: "none",
-  background: "rgba(255,255,255,0.03)",
-  color: "white"
-};
-
-/* 🔥 BUTTON STYLE */
-const buttonStyle = {
-  width: "100%",
-  padding: "10px",
-  borderRadius: "8px",
-  border: "none",
-  background: "#e50914",
-  color: "white",
-  fontWeight: "bold",
-  cursor: "pointer",
-  transition: "0.3s"
-};
 
 export default Register;

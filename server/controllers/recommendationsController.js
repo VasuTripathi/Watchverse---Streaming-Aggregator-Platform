@@ -8,13 +8,7 @@ const openai = new OpenAI({
 
 const getRecommendations = async (req, res) => {
   try {
-    const { user_id } = req.query;
-
-    if (typeof user_id !== "string" || !user_id.trim() || user_id.length > 128) {
-      return res.status(400).json({ message: "user_id is required" });
-    }
-
-    const activities = await Activity.findByUserId(user_id);
+    const activities = await Activity.findByUserId(req.user);
 
     if (activities.length === 0) {
       const popularMovies = await requestTMDB("/movie/popular", { page: 1 });

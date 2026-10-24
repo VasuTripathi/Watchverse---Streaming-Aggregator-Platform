@@ -80,7 +80,7 @@ function Login() {
 
       navigate("/");
     } catch (error) {
-      console.log(error.response || error);
+      console.error("Login request failed:", error.response?.status);
       toast.error(error.response?.data?.message || "Invalid Credentials");
     } finally {
       setIsLoading(false);
@@ -91,7 +91,7 @@ function Login() {
     <div
       className="min-h-screen text-white overflow-hidden relative"
       style={{
-        backgroundImage: "url('/login-bg.jpg')",
+        backgroundColor: "#0f0f0f",
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
