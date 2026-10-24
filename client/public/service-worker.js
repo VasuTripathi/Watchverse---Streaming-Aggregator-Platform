@@ -1,7 +1,7 @@
 // Service Worker for Watchverse PWA
 // Handles caching, offline support, and push notifications
 
-const CACHE_NAME = 'watchverse-v2';
+const CACHE_NAME = 'watchverse-v3';
 const APP_BASE = self.registration.scope;
 const URLS_TO_CACHE = [
   APP_BASE,
@@ -76,6 +76,26 @@ self.addEventListener('fetch', (event) => {
           // If network fails, try cache
           return caches.match(request);
         })
+    );
+    return;
+  }
+
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then(async (response) => {
+          if (response.ok) {
+            const cache = await caches.open(CACHE_NAME);
+            await cache.put(request, response.clone());
+          }
+          return response;
+        })
+        .catch(() =>
+          caches.match(request).then(
+            (cachedResponse) =>
+              cachedResponse || caches.match(new URL('index.html', APP_BASE).toString())
+          )
+        )
     );
     return;
   }
