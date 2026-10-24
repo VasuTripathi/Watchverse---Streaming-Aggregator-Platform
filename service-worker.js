@@ -1,14 +1,15 @@
 // Service Worker for Watchverse PWA
 // Handles caching, offline support, and push notifications
 
-const CACHE_NAME = 'watchverse-v1';
+const CACHE_NAME = 'watchverse-v2';
+const APP_BASE = self.registration.scope;
 const URLS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/favicon.ico',
-  '/manifest.json',
-  '/logo192.png',
-  '/logo512.png',
+  APP_BASE,
+  new URL('index.html', APP_BASE).toString(),
+  new URL('favicon.ico', APP_BASE).toString(),
+  new URL('manifest.json', APP_BASE).toString(),
+  new URL('logo192.png', APP_BASE).toString(),
+  new URL('logo512.png', APP_BASE).toString(),
 ];
 
 // Install event - cache essential files
