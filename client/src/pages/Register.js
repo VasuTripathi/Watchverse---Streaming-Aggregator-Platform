@@ -213,29 +213,4 @@ function Register() {
   );
 }
 
-/* 🔥 INPUT STYLE */
-const inputStyle = {
-  width: "100%",
-  padding: "12px",
-  marginBottom: "15px",
-  borderRadius: "8px",
-  border: "1px solid rgba(255,255,255,0.08)",
-  outline: "none",
-  background: "rgba(255,255,255,0.03)",
-  color: "white"
-};
-
-/* 🔥 BUTTON STYLE */
-const buttonStyle = {
-  width: "100%",
-  padding: "10px",
-  borderRadius: "8px",
-  border: "none",
-  background: "#e50914",
-  color: "white",
-  fontWeight: "bold",
-  cursor: "pointer",
-  transition: "0.3s"
-};
-
 export default Register;
