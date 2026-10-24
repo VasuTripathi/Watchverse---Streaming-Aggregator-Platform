@@ -87,6 +87,7 @@ app.use("/api/watchlist", require("./routes/watchlistRoutes"));
 app.use("/api/activity", require("./routes/activityRoutes"));
 app.use("/api/recommendations", require("./routes/recommendationsRoutes"));
 app.use("/api/search", require("./routes/searchRoutes"));
+app.use("/api/movies", require("./routes/tmdbRoutes"));
 app.use("/api/ai", require("./routes/aiRoutes"));
 
 // Health check endpoint

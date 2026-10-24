@@ -1,34 +1,31 @@
 const Activity = require("../models/Activity");
-const axios = require("axios");
 const OpenAI = require("openai");
+const requestTMDB = require("../services/tmdbClient");
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY, // Make sure to set this in .env
+  apiKey: process.env.OPENAI_API_KEY,
 });
-
-const TMDB_API_KEY = "c3eb192bb06b83bf9707742f3f5d851a"; // Same as client
 
 const getRecommendations = async (req, res) => {
   try {
     const { user_id } = req.query;
 
-    if (!user_id) {
+    if (typeof user_id !== "string" || !user_id.trim() || user_id.length > 128) {
       return res.status(400).json({ message: "user_id is required" });
     }
 
-    // Fetch user's activities
     const activities = await Activity.findByUserId(user_id);
 
     if (activities.length === 0) {
-      // If no activities, return popular movies
-      const popularRes = await axios.get(`https://api.themoviedb.org/3/movie/popular?api_key=${TMDB_API_KEY}`);
-      return res.json({ recommendations: popularRes.data.results.slice(0, 10) });
+      const popularMovies = await requestTMDB("/movie/popular", { page: 1 });
+      return res.json({ recommendations: popularMovies.results.slice(0, 10) });
     }
 
-    // Extract movie titles from activities
-    const movieTitles = activities.map(activity => activity.movie.title).slice(0, 10); // Limit to recent 10
+    const movieTitles = activities
+      .map(activity => activity.movie?.title)
+      .filter(title => typeof title === "string" && title.trim())
+      .slice(0, 10);
 
-    // Use OpenAI to generate recommendations
     const prompt = `Based on the user's interest in these movies: ${movieTitles.join(", ")}, recommend 10 similar movies. Return only a JSON array of movie titles, nothing else.`;
 
     const completion = await openai.chat.completions.create({
@@ -37,25 +34,42 @@ const getRecommendations = async (req, res) => {
       max_tokens: 200,
     });
 
-    const recommendedTitles = JSON.parse(completion.choices[0].message.content);
+    const parsedTitles = JSON.parse(completion.choices[0].message.content);
+    const recommendedTitles = Array.isArray(parsedTitles)
+      ? parsedTitles
+          .filter(title => typeof title === "string")
+          .map(title => title.trim())
+          .filter(title => title.length > 0 && title.length <= 200)
+          .slice(0, 10)
+      : [];
 
-    // Fetch movie details from TMDB for each recommended title
     const recommendations = [];
     for (const title of recommendedTitles) {
       try {
-        const searchRes = await axios.get(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(title)}`);
-        if (searchRes.data.results.length > 0) {
-          recommendations.push(searchRes.data.results[0]);
+        const searchResults = await requestTMDB("/search/movie", {
+          query: title,
+          page: 1,
+        });
+        if (searchResults.results.length > 0) {
+          recommendations.push(searchResults.results[0]);
         }
       } catch (error) {
-        console.error(`Error fetching movie: ${title}`, error);
+        console.error("Error fetching recommended movie:", error.statusCode || "provider error");
+        if (error.statusCode === 503) {
+          throw error;
+        }
       }
     }
 
-    res.json({ recommendations });
+    return res.json({ recommendations });
   } catch (error) {
-    console.error("Error getting recommendations:", error);
-    res.status(500).json({ message: "Failed to get recommendations" });
+    const statusCode = error.statusCode || 500;
+    console.error("Error getting recommendations:", statusCode);
+    return res.status(statusCode).json({
+      message: statusCode === 503
+        ? "Movie data is unavailable because TMDB_API_KEY is not configured on the server."
+        : "Failed to get recommendations"
+    });
   }
 };
 

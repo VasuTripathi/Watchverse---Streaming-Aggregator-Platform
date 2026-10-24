@@ -1,29 +1,28 @@
-const axios = require("axios");
 const OpenAI = require("openai");
+const requestTMDB = require("../services/tmdbClient");
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const TMDB_API_KEY = "c3eb192bb06b83bf9707742f3f5d851a";
-
 const getAISearchSuggestions = async (req, res) => {
   try {
     const { query } = req.query;
 
-    if (!query) {
-      return res.status(400).json({ message: "query is required" });
+    if (typeof query !== "string" || !query.trim() || query.trim().length > 200) {
+      return res.status(400).json({ message: "query must be a string between 1 and 200 characters" });
     }
+    const normalizedQuery = query.trim();
 
-    // Step 1: Get TMDB search results
-    const tmdbRes = await axios.get(
-      `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${query}`
-    );
+    const tmdbRes = await requestTMDB("/search/movie", {
+      query: normalizedQuery,
+      page: 1,
+      include_adult: false,
+      language: "en-US",
+    });
+    const tmdbResults = tmdbRes.results.slice(0, 5);
 
-    const tmdbResults = tmdbRes.data.results.slice(0, 5);
-
-    // Step 2: Use OpenAI to understand search intent and get recommendations
-    const prompt = `User is searching for: "${query}" on a movie streaming app.
+    const prompt = `User is searching for: "${normalizedQuery}" on a movie streaming app.
     
 Based on their search query, suggest 5 movie titles that match their intent. 
 For example, if they search "action", suggest action movies. If they search "sad movies", suggest emotional/drama films.
@@ -40,42 +39,55 @@ Return ONLY a JSON array of movie titles, nothing else. Example format:
 
     let aiSuggestions = [];
     try {
-      aiSuggestions = JSON.parse(completion.choices[0].message.content);
-    } catch (err) {
-      console.error("Error parsing AI response:", err);
-      // Fallback to TMDB results if AI parsing fails
-      return res.json({ 
+      const parsedSuggestions = JSON.parse(completion.choices[0].message.content);
+      aiSuggestions = Array.isArray(parsedSuggestions)
+        ? parsedSuggestions
+            .filter(title => typeof title === "string")
+            .map(title => title.trim())
+            .filter(title => title.length > 0 && title.length <= 200)
+            .slice(0, 5)
+        : [];
+    } catch (error) {
+      console.error("Error parsing AI response");
+      return res.json({
         suggestions: tmdbResults,
-        aiEnhanced: false 
+        aiEnhanced: false
       });
     }
 
-    // Step 3: Search TMDB for each AI-suggested title to get movie objects
     const enrichedSuggestions = [];
     for (const title of aiSuggestions) {
       try {
-        const searchRes = await axios.get(
-          `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(title)}`
-        );
-        if (searchRes.data.results.length > 0) {
-          enrichedSuggestions.push(searchRes.data.results[0]);
+        const searchResults = await requestTMDB("/search/movie", {
+          query: title,
+          page: 1,
+        });
+        if (searchResults.results.length > 0) {
+          enrichedSuggestions.push(searchResults.results[0]);
         }
-      } catch (err) {
-        console.error(`Error fetching AI suggested movie: ${title}`, err);
+      } catch (error) {
+        console.error("Error fetching AI suggested movie:", error.statusCode || "provider error");
+        if (error.statusCode === 503) {
+          throw error;
+        }
       }
     }
 
-    // Return AI-enhanced suggestions, fallback to TMDB if not enough results
     const finalSuggestions = enrichedSuggestions.length > 0 ? enrichedSuggestions : tmdbResults;
 
-    res.json({
+    return res.json({
       suggestions: finalSuggestions,
       aiEnhanced: enrichedSuggestions.length > 0,
-      query: query
+      query: normalizedQuery
     });
   } catch (error) {
-    console.error("Error getting AI search suggestions:", error);
-    res.status(500).json({ message: "Failed to get search suggestions" });
+    const statusCode = error.statusCode || 500;
+    console.error("Error getting AI search suggestions:", statusCode);
+    return res.status(statusCode).json({
+      message: statusCode === 503
+        ? "Movie data is unavailable because TMDB_API_KEY is not configured on the server."
+        : "Failed to get search suggestions"
+    });
   }
 };
 

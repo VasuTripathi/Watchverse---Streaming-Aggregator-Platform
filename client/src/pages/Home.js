@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
-import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import API from "../services/api";
 
 function Home() {
 
@@ -45,14 +45,16 @@ function Home() {
         setError(null);
         const userId = localStorage.getItem("userId");
         const [trendingRes, topRatedRes, popularRes, actionRes, thrillerRes, horrorRes, comedyRes, recRes] = await Promise.all([
-          axios.get(`https://api.themoviedb.org/3/trending/movie/day?api_key=c3eb192bb06b83bf9707742f3f5d851a`),
-          axios.get(`https://api.themoviedb.org/3/movie/top_rated?api_key=c3eb192bb06b83bf9707742f3f5d851a`),
-          axios.get(`https://api.themoviedb.org/3/movie/popular?api_key=c3eb192bb06b83bf9707742f3f5d851a`),
-          axios.get(`https://api.themoviedb.org/3/discover/movie?api_key=c3eb192bb06b83bf9707742f3f5d851a&with_genres=28&sort_by=popularity.desc`),
-          axios.get(`https://api.themoviedb.org/3/discover/movie?api_key=c3eb192bb06b83bf9707742f3f5d851a&with_genres=53&sort_by=popularity.desc`),
-          axios.get(`https://api.themoviedb.org/3/discover/movie?api_key=c3eb192bb06b83bf9707742f3f5d851a&with_genres=27&sort_by=popularity.desc`),
-          axios.get(`https://api.themoviedb.org/3/discover/movie?api_key=c3eb192bb06b83bf9707742f3f5d851a&with_genres=35&sort_by=popularity.desc`),
-          userId ? axios.get(`http://localhost:5000/api/recommendations?user_id=${userId}`) : Promise.resolve({ data: { recommendations: [] } })
+          API.get("/movies/trending/day"),
+          API.get("/movies/top-rated"),
+          API.get("/movies/popular"),
+          API.get("/movies/discover", { params: { genre: 28 } }),
+          API.get("/movies/discover", { params: { genre: 53 } }),
+          API.get("/movies/discover", { params: { genre: 27 } }),
+          API.get("/movies/discover", { params: { genre: 35 } }),
+          userId
+            ? API.get("/recommendations", { params: { user_id: userId } })
+            : Promise.resolve({ data: { recommendations: [] } })
         ]);
         setTrending(trendingRes.data.results);
         setTopRated(topRatedRes.data.results);
@@ -63,8 +65,8 @@ function Home() {
         setComedyMovies(comedyRes.data.results);
         setRecommendations(recRes.data.recommendations || []);
       } catch (err) {
-        setError('Failed to load movies. Please try again.');
-        console.error(err);
+        setError(err.response?.data?.message || 'Failed to load movies. Please try again.');
+        console.error("Failed to load movies:", err.response?.status);
       } finally {
         setLoading(false);
       }

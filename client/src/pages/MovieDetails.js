@@ -1,8 +1,6 @@
 import { useEffect, useState, useContext, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import axios from "axios";
-
 import API from "../services/api";
 import { AuthContext } from "../context/AuthContext";
 
@@ -29,39 +27,31 @@ function MovieDetails() {
   };
 
   useEffect(() => {
-    axios
-      .get(
-        `https://api.themoviedb.org/3/movie/${id}?api_key=c3eb192bb06b83bf9707742f3f5d851a`
-      )
+    API.get(`/movies/movie/${encodeURIComponent(id)}`)
       .then((res) => setMovie(res.data))
-      .catch((err) => console.log(err));
+      .catch((err) => console.error("Failed to load movie details:", err.response?.status));
 
-    axios
-      .get(
-        `https://api.themoviedb.org/3/movie/${id}/videos?api_key=c3eb192bb06b83bf9707742f3f5d851a`
-      )
+    API.get(`/movies/movie/${encodeURIComponent(id)}/videos`)
       .then((res) => {
         const video = res.data.results.find((vid) => vid.type === "Trailer");
         if (video) setTrailer(video.key);
-      });
+      })
+      .catch((err) => console.error("Failed to load movie videos:", err.response?.status));
 
-    axios
-      .get(
-        `https://api.themoviedb.org/3/movie/${id}/similar?api_key=c3eb192bb06b83bf9707742f3f5d851a`
-      )
-      .then((res) => setRecommendations(res.data.results));
-      axios.get(
-  `https://api.themoviedb.org/3/movie/${id}/watch/providers?api_key=c3eb192bb06b83bf9707742f3f5d851a`
-)
-.then(res => {
-  const data = res.data.results?.IN; // 🇮🇳 India
+    API.get(`/movies/movie/${encodeURIComponent(id)}/similar`)
+      .then((res) => setRecommendations(res.data.results))
+      .catch((err) => console.error("Failed to load similar movies:", err.response?.status));
 
-  if (data) {
-    setProviders(data.flatrate || []);
-    setWatchLink(data.link);
-  }
-})
-.catch(err => console.log(err));
+    API.get(`/movies/movie/${encodeURIComponent(id)}/providers`)
+      .then(res => {
+        const data = res.data.results?.IN;
+
+        if (data) {
+          setProviders(data.flatrate || []);
+          setWatchLink(data.link);
+        }
+      })
+      .catch(err => console.error("Failed to load movie providers:", err.response?.status));
   }, [id]);
 
   const addToWatchlist = async () => {

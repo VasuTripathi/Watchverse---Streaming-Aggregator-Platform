@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import API from "../services/api";
 
 // Separate component for background animation to prevent flickering
 function AnimatedBackground() {
@@ -52,6 +52,7 @@ function Search() {
   const [trendingLoading, setTrendingLoading] = useState(false);
   const [searchHistory, setSearchHistory] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [searchError, setSearchError] = useState("");
   const [isSuggestionsLoading, setIsSuggestionsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("search");
   const [voiceSearchActive, setVoiceSearchActive] = useState(false);
@@ -145,9 +146,9 @@ function Search() {
 
     if (!movieId && movie?.title) {
       try {
-        const searchRes = await axios.get(
-          `https://api.themoviedb.org/3/search/movie?api_key=c3eb192bb06b83bf9707742f3f5d851a&query=${encodeURIComponent(movie.title)}`
-        );
+        const searchRes = await API.get("/movies/search", {
+          params: { query: movie.title }
+        });
         movieId = searchRes.data.results?.[0]?.id;
       } catch (searchErr) {
         console.error("Error resolving movie id from title:", searchErr);
@@ -167,28 +168,27 @@ function Search() {
       const userId = localStorage.getItem("userId");
 
       if (!userId) {
-        const popularRes = await axios.get(
-          `https://api.themoviedb.org/3/movie/popular?api_key=c3eb192bb06b83bf9707742f3f5d851a`
-        );
+        const popularRes = await API.get("/movies/popular");
         setRecommendations(popularRes.data.results.slice(0, 12));
         return;
       }
 
-      const res = await axios.get(`http://localhost:5000/api/recommendations?user_id=${userId}`);
+      const res = await API.get("/recommendations", { params: { user_id: userId } });
       setRecommendations(res.data.recommendations || []);
 
       if (!res.data.recommendations || res.data.recommendations.length === 0) {
-        const popularRes = await axios.get(
-          `https://api.themoviedb.org/3/movie/popular?api_key=c3eb192bb06b83bf9707742f3f5d851a`
-        );
+        const popularRes = await API.get("/movies/popular");
         setRecommendations(popularRes.data.results.slice(0, 12));
       }
     } catch (err) {
-      console.error("Error fetching recommendations:", err);
-      const popularRes = await axios.get(
-        `https://api.themoviedb.org/3/movie/popular?api_key=c3eb192bb06b83bf9707742f3f5d851a`
-      );
-      setRecommendations(popularRes.data.results.slice(0, 12));
+      console.error("Error fetching recommendations:", err.response?.status);
+      try {
+        const popularRes = await API.get("/movies/popular");
+        setRecommendations(popularRes.data.results.slice(0, 12));
+      } catch (fallbackError) {
+        console.error("Error loading popular movies:", fallbackError.response?.status);
+        setRecommendations([]);
+      }
     }
   };
 
@@ -197,9 +197,7 @@ function Search() {
     setTrendingLoading(true);
 
     try {
-      const trendingRes = await axios.get(
-        `https://api.themoviedb.org/3/trending/movie/week?api_key=c3eb192bb06b83bf9707742f3f5d851a`
-      );
+      const trendingRes = await API.get("/movies/trending/week");
       setTrendingMovies(trendingRes.data.results.slice(0, 16));
     } catch (err) {
       console.error("Error fetching trending movies:", err);
@@ -217,27 +215,20 @@ function Search() {
     if (!trimmedQuery && !hasFilter) return;
 
     setIsLoading(true);
+    setSearchError("");
     if (trimmedQuery) saveToHistory(trimmedQuery);
 
     try {
-      const apiKey = "c3eb192bb06b83bf9707742f3f5d851a";
-      let url;
-      const params = new URLSearchParams({ api_key: apiKey, language: 'en-US', include_adult: 'false', page: '1' });
-
-      if (trimmedQuery) {
-        url = 'https://api.themoviedb.org/3/search/movie';
-        params.append('query', trimmedQuery);
-        if (searchFilters.year) params.append('year', searchFilters.year);
-        if (searchFilters.genre) params.append('with_genres', searchFilters.genre);
-      } else {
-        url = 'https://api.themoviedb.org/3/discover/movie';
-        if (searchFilters.year) params.append('primary_release_year', searchFilters.year);
-        if (searchFilters.genre) params.append('with_genres', searchFilters.genre);
-      }
-
-      if (searchFilters.rating) params.append('vote_average.gte', searchFilters.rating);
-
-      const res = await axios.get(`${url}?${params.toString()}`);
+      const filters = {
+        year: searchFilters.year || undefined,
+        genre: searchFilters.genre || undefined,
+        rating: searchFilters.rating || undefined,
+      };
+      const res = trimmedQuery
+        ? await API.get("/movies/search", {
+            params: { query: trimmedQuery, ...filters }
+          })
+        : await API.get("/movies/discover", { params: filters });
       let results = res.data.results || [];
 
       if (searchFilters.platforms.length > 0) {
@@ -247,7 +238,8 @@ function Search() {
       setMovies(results);
       setActiveTab('search');
     } catch (err) {
-      console.error('Error searching movies:', err);
+      setSearchError(err.response?.data?.message || "Failed to search movies.");
+      console.error("Error searching movies:", err.response?.status);
       setMovies([]);
     } finally {
       setIsLoading(false);
@@ -678,9 +670,14 @@ function Search() {
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5 }}
             >
-              {query.trim() || movies.length > 0 ? (
+              {query.trim() || movies.length > 0 || searchError ? (
                 <>
-                  <div className="flex justify-between items-center mb-8">
+                          {searchError && (
+                            <p role="alert" className="mb-6 text-center text-red-400">
+                              {searchError}
+                            </p>
+                          )}
+                          <div className="flex justify-between items-center mb-8">
                     <h2 className="text-3xl font-bold bg-gradient-to-r from-electric-crimson to-red-400 bg-clip-text text-transparent">
                       {query.trim() ? `Results for "${query}"` : 'Search Results'}
                     </h2>

@@ -331,6 +331,8 @@ CREATE POLICY "Users can delete own watchlist"
 - [ ] OPENAI_API_KEY
 - [ ] TMDB_API_KEY
 
+Keep `TMDB_API_KEY` in the backend environment only. Do not add it to frontend environment variables or client build configuration; movie requests go through the backend.
+
 **Frontend `.env.production.local`:**
 - [ ] REACT_APP_API_URL (backend API URL)
 - [ ] REACT_APP_ENV=production
